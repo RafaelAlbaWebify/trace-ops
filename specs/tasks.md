@@ -73,6 +73,7 @@
 ## Phase 5A: Operational read-only Graph diagnostics
 
 - [x] Add Phase 5A operational Graph diagnostics plan.
+- [x] Add read-only Microsoft Graph readiness preflight script.
 - [ ] Verify proposed Graph permissions against current Microsoft documentation.
 - [ ] Add standalone operational collector script: Invoke-TraceM365AccessGraphScan.ps1.
 - [ ] Add user lookup by UPN in operational collector.

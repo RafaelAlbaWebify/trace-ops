@@ -89,6 +89,36 @@ Real collection is intentionally not implemented in Phase 1. If `UseSampleData:$
 }
 ```
 
+## Operational Graph Readiness Preflight
+
+`Test-TraceGraphReadiness.ps1` checks whether the local PowerShell session appears ready for future read-only Microsoft Graph operational diagnostics.
+
+The preflight script:
+
+- returns JSON only
+- checks whether Microsoft Graph PowerShell cmdlets are available
+- checks whether the current session appears connected to Microsoft Graph when context is available
+- checks for planned read-only scopes when scope information is available
+- does not connect automatically
+- does not request write scopes
+- does not run write cmdlets
+- does not store tokens
+- does not remediate tenant settings
+
+Run the preflight:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\collector\Test-TraceGraphReadiness.ps1
+```
+
+If Graph connection is needed, connect manually with planned read-only scopes:
+
+```powershell
+Connect-MgGraph -Scopes "User.Read.All","Directory.Read.All","AuditLog.Read.All"
+```
+
+Tenant admin consent may be required before these scopes are usable.
+
 ## Manual Test Commands
 
 Run the main collector:
@@ -125,6 +155,12 @@ Run all collector tests:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-Pester -Script .\collector\tests\Invoke-TraceM365AccessScan.Tests.ps1"
+```
+
+Run the Graph readiness preflight tests:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-Pester -Script .\collector\tests\Test-TraceGraphReadiness.Tests.ps1"
 ```
 
 ## Future Microsoft Graph Collection
