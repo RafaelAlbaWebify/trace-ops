@@ -75,7 +75,7 @@
 - [x] Add Phase 5A operational Graph diagnostics plan.
 - [x] Add read-only Microsoft Graph readiness preflight script.
 - [x] Verify proposed Graph permissions against current Microsoft documentation.
-- [ ] Update Graph readiness preflight to check LicenseAssignment.Read.All instead of Directory.Read.All.
+- [x] Update Graph readiness preflight to check LicenseAssignment.Read.All instead of Directory.Read.All.
 - [ ] Add standalone operational collector script: Invoke-TraceM365AccessGraphScan.ps1.
 - [ ] Add user lookup by UPN in operational collector.
 - [ ] Add recent sign-in log retrieval with time window filtering.

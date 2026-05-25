@@ -119,7 +119,7 @@ Connect-MgGraph -Scopes "User.Read.All","AuditLog.Read.All","LicenseAssignment.R
 
 Tenant admin consent may be required before these scopes are usable.
 
-The current preflight script was created before the Phase 5A permission verification update and may need to be updated to check `LicenseAssignment.Read.All` instead of `Directory.Read.All`.
+`Directory.Read.All` is broader than the baseline preflight scope set. Keep it as a fallback only if tenant policy, role design, or implementation evidence shows it is required.
 
 ## Manual Test Commands
 

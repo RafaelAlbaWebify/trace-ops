@@ -3,8 +3,8 @@ $readinessScript = Join-Path -Path $collectorRoot -ChildPath "Test-TraceGraphRea
 
 $requiredScopes = @(
     "User.Read.All",
-    "Directory.Read.All",
-    "AuditLog.Read.All"
+    "AuditLog.Read.All",
+    "LicenseAssignment.Read.All"
 )
 
 Describe "Test-TraceGraphReadiness" {
@@ -25,6 +25,8 @@ Describe "Test-TraceGraphReadiness" {
         $result.evidence.tenant_id | Should Be "00000000-0000-0000-0000-000000000000"
         $result.evidence.account | Should Be "admin@example.com"
         $result.required_scopes.Count | Should Be 3
+        ($result.required_scopes -contains "Directory.Read.All") | Should Be $false
+        ($result.required_scopes -contains "LicenseAssignment.Read.All") | Should Be $true
     }
 
     It "returns error when Graph module is missing" {
@@ -61,8 +63,9 @@ Describe "Test-TraceGraphReadiness" {
 
         $result.status | Should Be "warning"
         $result.evidence.connected_to_graph | Should Be $true
-        ($result.evidence.missing_scopes -contains "Directory.Read.All") | Should Be $true
         ($result.evidence.missing_scopes -contains "AuditLog.Read.All") | Should Be $true
+        ($result.evidence.missing_scopes -contains "LicenseAssignment.Read.All") | Should Be $true
+        ($result.evidence.missing_scopes -contains "Directory.Read.All") | Should Be $false
     }
 
     It "returns ok when connected with required scopes" {
@@ -96,6 +99,6 @@ Describe "Test-TraceGraphReadiness" {
         $scriptText | Should Not Match "Update-Mg"
         $scriptText | Should Not Match "Remove-Mg"
         $scriptText | Should Not Match "Reset"
-        $scriptText | Should Not Match "Assign"
+        $scriptText | Should Not Match "Assign-Mg"
     }
 }

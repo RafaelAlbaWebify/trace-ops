@@ -13,8 +13,8 @@ param(
 
 $requiredScopes = @(
     "User.Read.All",
-    "Directory.Read.All",
-    "AuditLog.Read.All"
+    "AuditLog.Read.All",
+    "LicenseAssignment.Read.All"
 )
 
 function Test-TraceGraphModuleAvailable {
@@ -129,10 +129,10 @@ if (-not $graphModuleAvailable) {
 }
 
 if (-not $contextEvidence.connected_to_graph) {
-    $safeNextSteps.Add('Connect with Connect-MgGraph using required read-only scopes: "User.Read.All","Directory.Read.All","AuditLog.Read.All".')
+    $safeNextSteps.Add('Connect with Connect-MgGraph using required read-only scopes: "User.Read.All","AuditLog.Read.All","LicenseAssignment.Read.All".')
 }
 elseif ($missingScopes.Count -gt 0) {
-    $safeNextSteps.Add('Reconnect with Connect-MgGraph using required read-only scopes: "User.Read.All","Directory.Read.All","AuditLog.Read.All".')
+    $safeNextSteps.Add('Reconnect with Connect-MgGraph using required read-only scopes: "User.Read.All","AuditLog.Read.All","LicenseAssignment.Read.All".')
 }
 
 if (-not $graphModuleAvailable -or -not $contextEvidence.connected_to_graph -or $missingScopes.Count -gt 0) {
