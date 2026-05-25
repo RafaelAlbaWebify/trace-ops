@@ -88,6 +88,24 @@
 - [ ] Keep sample mode as the default.
 - [ ] Do not add remediation or tenant write actions.
 
+## Phase 5B: User Access Health Scanner
+
+- [x] Add Phase 5B User Access Health Scanner plan.
+- [ ] Finish Phase 5A single-user operational collector first.
+- [ ] Add synthetic CSV fixtures for multi-user scans.
+- [ ] Add CSV parser and validation for user_principal_name and optional affected_service.
+- [ ] Add mocked Graph response fixtures for multi-user scan tests.
+- [ ] Add CSV-based multi-user scan runner.
+- [ ] Reuse per-user analyzer logic for grouped scan results.
+- [ ] Add grouped issue category summary.
+- [ ] Add local JSON/HTML group health report.
+- [ ] Add frontend health summary view later.
+- [ ] Add Entra ID group input later.
+- [ ] Add visual access map later.
+- [ ] Consider on-prem AD OU scanner later for hybrid/on-prem environments only.
+- [ ] Keep scanner read-only and scoped by explicit input.
+- [ ] Do not add remediation or tenant write actions.
+
 ## Phase 6: Real Microsoft Graph integration
 
 - [ ] Implement delegated Microsoft Graph authentication.

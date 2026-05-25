@@ -181,6 +181,10 @@ There is no tenant connection UI and no Microsoft Graph permissions UI yet.
 - Report generation is limited to JSON and HTML.
 - Future TRACE modules are described in specs but are not implemented.
 
+## Future Roadmap
+
+Planned operational work includes a read-only **User Access Health Scanner** for proactive access-readiness checks. The first version should scan an explicit CSV list of users, with Entra ID group scanning later. On-prem AD OU scanning may be considered later for hybrid/on-prem environments only, because Entra ID does not use classic OUs.
+
 ## Portfolio Value
 
 TRACE demonstrates a practical IT Operations troubleshooting workflow: collecting evidence, validating contracts between layers, applying deterministic diagnostic rules, storing local history, and producing support-ready reports. The project is intentionally framed around safe, read-only diagnosis rather than remediation or offensive simulation.
