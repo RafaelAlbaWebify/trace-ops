@@ -22,6 +22,7 @@ vi.mock("./api", () => ({
     "missing-license",
     "ca-details-missing",
     "ca-device-noncompliant",
+    "mfa-requirement-not-satisfied",
     "no-recent-signin-evidence",
     "successful-access-baseline"
   ],
@@ -120,6 +121,7 @@ describe("TRACE frontend MVP", () => {
     expect(screen.getByLabelText("User principal name")).toBeInTheDocument();
     expect(screen.getByLabelText("Affected service")).toBeInTheDocument();
     expect(screen.getByLabelText("Sample scenario")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "mfa-requirement-not-satisfied" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run scan" })).toBeInTheDocument();
   });
 

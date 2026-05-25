@@ -37,6 +37,14 @@ def test_ca_device_noncompliant_triggers_device_compliance_block():
     assert analysis["primary_finding"]["rule_id"] == "CA_DEVICE_COMPLIANCE_BLOCK"
 
 
+def test_mfa_requirement_not_satisfied_triggers_mfa_rule():
+    analysis = _analysis_for("mfa-requirement-not-satisfied")
+
+    assert "MFA_REQUIREMENT_NOT_SATISFIED" in _rule_ids(analysis)
+    assert analysis["primary_finding"]["rule_id"] == "MFA_REQUIREMENT_NOT_SATISFIED"
+    assert "Do not disable MFA globally." in analysis["primary_finding"]["what_not_to_change_yet"]
+
+
 def test_no_recent_signin_evidence_triggers_no_recent_signin_evidence():
     analysis = _analysis_for("no-recent-signin-evidence")
 

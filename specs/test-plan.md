@@ -45,5 +45,6 @@ Use Vitest to validate:
 2. missing-license.json
 3. ca-details-missing.json
 4. ca-device-noncompliant.json
-5. no-recent-signin-evidence.json
-6. successful-access-baseline.json
+5. mfa-requirement-not-satisfied.json
+6. no-recent-signin-evidence.json
+7. successful-access-baseline.json

@@ -49,6 +49,24 @@ def _has_failed_compliant_device_policy(result: CollectorResult) -> bool:
     )
 
 
+def _has_failed_mfa_policy(result: CollectorResult) -> bool:
+    mfa_controls = {"mfa", "multifactorauthentication"}
+    return any(
+        policy.result == "failure"
+        and any(control.lower() in mfa_controls for control in policy.grantControls)
+        for policy in result.conditional_access.policies
+    )
+
+
+def _has_mfa_failure_reason(result: CollectorResult) -> bool:
+    return any(
+        event.status == "failure"
+        and event.failureReason is not None
+        and "mfa" in event.failureReason.lower()
+        for event in result.signin_logs.recent_events
+    )
+
+
 def _device_compliance_is_blocking(result: CollectorResult) -> bool:
     return result.device.compliance_state in ("nonCompliant", "unknown")
 
@@ -146,6 +164,51 @@ def _build_findings(result: CollectorResult) -> List[Finding]:
                 ],
                 limitations=[
                     "Policy name and grant controls were not available, so confidence is reduced.",
+                ],
+            )
+        )
+
+    if (
+        result.identity.user_exists
+        and result.identity.account_enabled
+        and result.licenses.has_relevant_license
+        and result.signin_logs.available
+        and _has_recent_signin_failure(result)
+        and _has_mfa_failure_reason(result)
+        and result.conditional_access.details_available
+        and _has_failed_mfa_policy(result)
+    ):
+        findings.append(
+            _finding(
+                rule_id="MFA_REQUIREMENT_NOT_SATISFIED",
+                title="MFA requirement was not satisfied",
+                severity="high",
+                confidence="high",
+                likely_cause=(
+                    "The user exists, the account is enabled, licensing is present, and a failed "
+                    "Conditional Access policy required MFA that was not completed or satisfied."
+                ),
+                evidence=[
+                    "identity.user_exists is true.",
+                    "identity.account_enabled is true.",
+                    "licenses.has_relevant_license is true.",
+                    "A recent sign-in failed with an MFA-related failure reason.",
+                    "conditional_access.details_available is true.",
+                    "At least one failed policy includes an MFA-related grant control.",
+                    f"device.compliance_state is {result.device.compliance_state}.",
+                ],
+                next_steps=[
+                    "Confirm the user can complete MFA.",
+                    "Check registered authentication methods.",
+                    "Review sign-in logs and Conditional Access policy result.",
+                    "Retest using a known working MFA method.",
+                ],
+                what_not_to_change_yet=[
+                    "Do not disable MFA globally.",
+                    "Do not exclude the user from Conditional Access until policy scope and sign-in evidence are reviewed.",
+                ],
+                limitations=[
+                    "Sample-mode evidence does not include live authentication method registration details.",
                 ],
             )
         )

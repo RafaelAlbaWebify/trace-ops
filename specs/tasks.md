@@ -70,6 +70,23 @@
 - [x] Add what-not-to-change-yet section.
 - [ ] Add frontend export buttons.
 
+## Phase 5A: Operational read-only Graph diagnostics
+
+- [x] Add Phase 5A operational Graph diagnostics plan.
+- [ ] Verify proposed Graph permissions against current Microsoft documentation.
+- [ ] Add standalone operational collector script: Invoke-TraceM365AccessGraphScan.ps1.
+- [ ] Add user lookup by UPN in operational collector.
+- [ ] Add recent sign-in log retrieval with time window filtering.
+- [ ] Normalize live evidence into the TRACE collector contract.
+- [ ] Add controlled operational collector errors.
+- [ ] Add mocked Graph response fixtures.
+- [ ] Add Pester tests for operational collector with mocked Graph responses.
+- [ ] Add backend runner support for operational mode.
+- [ ] Add backend tests for operational runner controlled errors.
+- [ ] Add frontend mode selector later.
+- [ ] Keep sample mode as the default.
+- [ ] Do not add remediation or tenant write actions.
+
 ## Phase 6: Real Microsoft Graph integration
 
 - [ ] Implement delegated Microsoft Graph authentication.

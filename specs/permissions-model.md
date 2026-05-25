@@ -102,3 +102,70 @@ TRACE may store:
 - local scan history in SQLite
 
 Sensitive tenant data should be minimized in stored reports.
+
+## Planned Phase 5A: Operational read-only Graph permissions
+
+Phase 5A will add an explicit operational mode for authorized tenant diagnostics while keeping sample mode available for demos and automated tests.
+
+Operational mode must be used only by an administrator or support engineer with authorized access to the Microsoft 365 tenant being diagnosed.
+
+Permissions below are proposed for planning and must be verified against current Microsoft documentation before implementation.
+
+### Proposed read-only permissions
+
+#### User.Read.All
+
+Purpose:
+
+- Look up the target user by UPN.
+- Confirm that the user exists.
+- Read basic user profile details needed for diagnosis.
+
+Status: to verify against Microsoft documentation before implementation.
+
+#### Directory.Read.All
+
+Purpose:
+
+- Read directory properties needed for account status, user type, and assigned license details.
+
+Status: to verify against Microsoft documentation before implementation.
+
+#### AuditLog.Read.All
+
+Purpose:
+
+- Read recent sign-in logs for the target user.
+- Inspect failure reason, resource, client app, Conditional Access status, and device details returned by sign-in events.
+
+Status: to verify against Microsoft documentation before implementation.
+
+#### Policy.Read.All
+
+Purpose:
+
+- Only if later policy definition lookup is added beyond Conditional Access details returned in sign-in logs.
+
+Status: deferred; to verify against Microsoft documentation before implementation.
+
+#### DeviceManagementManagedDevices.Read.All
+
+Purpose:
+
+- Only if a later Intune managed-device compliance deep dive is added.
+
+Status: deferred; to verify against Microsoft documentation before implementation.
+
+### Phase 5A permission boundaries
+
+Phase 5A must not request write scopes and must not perform:
+
+- remediation
+- policy edits
+- Conditional Access exclusions
+- MFA reset
+- password reset
+- license assignment or removal
+- Intune device actions
+
+TRACE must not store Graph access tokens, refresh tokens, passwords, client secrets, or raw credentials.

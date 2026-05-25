@@ -21,6 +21,7 @@ SUPPORTED_SAMPLE_SCENARIOS = (
     "missing-license",
     "ca-details-missing",
     "ca-device-noncompliant",
+    "mfa-requirement-not-satisfied",
     "no-recent-signin-evidence",
     "successful-access-baseline",
 )

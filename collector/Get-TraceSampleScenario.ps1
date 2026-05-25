@@ -39,6 +39,7 @@ function Get-TraceSampleScenario {
         "missing-license" = "missing-license.json"
         "ca-details-missing" = "ca-details-missing.json"
         "ca-device-noncompliant" = "ca-device-noncompliant.json"
+        "mfa-requirement-not-satisfied" = "mfa-requirement-not-satisfied.json"
         "no-recent-signin-evidence" = "no-recent-signin-evidence.json"
         "successful-access-baseline" = "successful-access-baseline.json"
     }
