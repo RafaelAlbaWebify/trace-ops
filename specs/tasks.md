@@ -1,0 +1,92 @@
+# TRACE Tasks
+
+## Phase 0: Spec foundation
+
+- [x] Create repository structure.
+- [x] Add AGENTS.md.
+- [x] Add README.md.
+- [x] Add product spec.
+- [x] Add technical plan.
+- [x] Add modules spec.
+- [x] Add permissions model.
+- [x] Add test plan.
+- [x] Add synthetic sample JSON files.
+- [x] Add .gitignore.
+
+## Phase 1: Collector MVP with sample mode
+
+- [ ] Create PowerShell script: Connect-TraceM365Graph.ps1.
+- [x] Create PowerShell script: Get-TraceUserIdentitySnapshot.ps1.
+- [x] Create PowerShell script: Get-TraceLicenseSnapshot.ps1.
+- [x] Create PowerShell script: Get-TraceSignInSnapshot.ps1.
+- [x] Create PowerShell script: Get-TraceConditionalAccessSnapshot.ps1.
+- [x] Create PowerShell script: Get-TraceDeviceComplianceSnapshot.ps1.
+- [x] Add -UseSampleData support for collector scripts.
+- [x] Add Pester tests validating JSON output shape.
+- [x] Do not add real remediation scripts.
+
+## Phase 2: Backend MVP
+
+- [x] Create FastAPI app.
+- [x] Add endpoint: GET /api/health.
+- [x] Add endpoint: GET /api/modules.
+- [x] Add endpoint: POST /api/scan/user-access.
+- [x] Add Pydantic models for scan request and scan result.
+- [x] Add collector subprocess runner.
+- [x] Add validation for collector JSON.
+- [x] Add graceful collector error handling.
+- [x] Add SQLite scan history.
+- [x] Add Pytest tests.
+
+## Phase 3: Analyzer rules
+
+- [x] Implement USER_ACCOUNT_DISABLED.
+- [x] Implement MISSING_RELEVANT_LICENSE.
+- [x] Implement CONDITIONAL_ACCESS_DETAILS_MISSING.
+- [x] Implement CA_DEVICE_COMPLIANCE_BLOCK.
+- [x] Implement NO_RECENT_SIGNIN_EVIDENCE.
+- [x] Add tests using synthetic sample JSON.
+
+## Phase 4: Frontend MVP
+
+- [x] Create React + TypeScript + Vite frontend.
+- [x] Add TRACE landing/dashboard page.
+- [x] Add module selector.
+- [x] Add M365 Access Path Analyzer scan form.
+- [x] Add results page.
+- [x] Add evidence cards.
+- [x] Add confidence labels.
+- [x] Add limitations section.
+- [x] Add local scan history view.
+- [x] Add Vitest tests for core components.
+
+## Phase 5: Reporting
+
+- [x] Generate HTML report.
+- [x] Generate JSON export.
+- [x] Add support summary.
+- [x] Add technical evidence section.
+- [ ] Add manager-friendly explanation.
+- [x] Add what-not-to-change-yet section.
+- [ ] Add frontend export buttons.
+
+## Phase 6: Real Microsoft Graph integration
+
+- [ ] Implement delegated Microsoft Graph authentication.
+- [ ] Add permission checks.
+- [ ] Add missing-permission warnings.
+- [ ] Add real user identity lookup.
+- [ ] Add real license lookup.
+- [ ] Add real sign-in log lookup.
+- [ ] Add Conditional Access evidence extraction when available.
+- [ ] Add device evidence extraction when available.
+- [ ] Keep sample mode available.
+
+## Phase 7: Portfolio polish
+
+- [x] Add screenshots using synthetic data.
+- [x] Add architecture diagram.
+- [ ] Add demo GIF or short video script.
+- [ ] Add limitations section to README.
+- [ ] Add future roadmap.
+- [ ] Add LinkedIn post draft.

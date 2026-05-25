@@ -1,0 +1,39 @@
+{
+  "scenario_id": "ca-details-missing",
+  "module": "m365-access-path-analyzer",
+  "input": {
+    "user_principal_name": "jane.doe@example.com",
+    "affected_service": "SharePoint Online / OneDrive"
+  },
+  "identity": {
+    "user_exists": true,
+    "account_enabled": true,
+    "user_type": "Member",
+    "display_name": "Jane Doe"
+  },
+  "licenses": {
+    "has_relevant_license": true,
+    "assigned_skus": ["SPE_E3"]
+  },
+  "signin_logs": {
+    "available": true,
+    "recent_events": [
+      {
+        "createdDateTime": "2026-05-25T10:05:00Z",
+        "status": "failure",
+        "failureReason": "Access has been blocked by Conditional Access policies.",
+        "resourceDisplayName": "Office 365 SharePoint Online",
+        "clientAppUsed": "Browser",
+        "conditionalAccessStatus": "failure"
+      }
+    ]
+  },
+  "conditional_access": {
+    "details_available": false,
+    "missing_reason": "Applied Conditional Access policy details were not returned. The account may lack required role or Graph permission.",
+    "policies": []
+  },
+  "device": {
+    "evidence_available": false
+  }
+}

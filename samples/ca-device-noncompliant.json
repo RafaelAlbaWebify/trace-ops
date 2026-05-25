@@ -1,0 +1,53 @@
+{
+  "scenario_id": "ca-device-noncompliant",
+  "module": "m365-access-path-analyzer",
+  "input": {
+    "user_principal_name": "jane.doe@example.com",
+    "affected_service": "Microsoft Teams"
+  },
+  "identity": {
+    "user_exists": true,
+    "account_enabled": true,
+    "user_type": "Member",
+    "display_name": "Jane Doe"
+  },
+  "licenses": {
+    "has_relevant_license": true,
+    "assigned_skus": ["SPE_E3", "TEAMS1"]
+  },
+  "signin_logs": {
+    "available": true,
+    "recent_events": [
+      {
+        "createdDateTime": "2026-05-25T11:20:00Z",
+        "status": "failure",
+        "failureReason": "Device does not satisfy the compliant device requirement.",
+        "resourceDisplayName": "Microsoft Teams",
+        "clientAppUsed": "Mobile Apps and Desktop clients",
+        "conditionalAccessStatus": "failure",
+        "deviceDetail": {
+          "deviceId": "00000000-0000-0000-0000-000000000001",
+          "displayName": "LAPTOP-EXAMPLE",
+          "trustType": "Azure AD joined"
+        }
+      }
+    ]
+  },
+  "conditional_access": {
+    "details_available": true,
+    "policies": [
+      {
+        "displayName": "Require compliant device for Microsoft 365",
+        "result": "failure",
+        "grantControls": ["compliantDevice"]
+      }
+    ]
+  },
+  "device": {
+    "evidence_available": true,
+    "device_id": "00000000-0000-0000-0000-000000000001",
+    "display_name": "LAPTOP-EXAMPLE",
+    "compliance_state": "nonCompliant",
+    "last_check_in": "2026-05-20T08:00:00Z"
+  }
+}

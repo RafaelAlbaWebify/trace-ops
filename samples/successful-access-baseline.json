@@ -1,0 +1,37 @@
+{
+  "scenario_id": "successful-access-baseline",
+  "module": "m365-access-path-analyzer",
+  "input": {
+    "user_principal_name": "jane.doe@example.com",
+    "affected_service": "Microsoft 365 general access"
+  },
+  "identity": {
+    "user_exists": true,
+    "account_enabled": true,
+    "user_type": "Member",
+    "display_name": "Jane Doe"
+  },
+  "licenses": {
+    "has_relevant_license": true,
+    "assigned_skus": ["SPE_E3"]
+  },
+  "signin_logs": {
+    "available": true,
+    "recent_events": [
+      {
+        "createdDateTime": "2026-05-25T12:00:00Z",
+        "status": "success",
+        "resourceDisplayName": "Office 365",
+        "clientAppUsed": "Browser",
+        "conditionalAccessStatus": "success"
+      }
+    ]
+  },
+  "conditional_access": {
+    "details_available": true,
+    "policies": []
+  },
+  "device": {
+    "evidence_available": false
+  }
+}
