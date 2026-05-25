@@ -18,12 +18,11 @@ Purpose:
 
 - Confirm user exists.
 - Confirm account enabled/disabled.
-- Read assigned licenses.
 
 Potential Graph permissions:
 
 - User.Read.All
-- Directory.Read.All where required by implemented cmdlets
+- Directory.Read.All only as a broader fallback where tenant/admin context requires it
 
 ### Sign-in logs
 
@@ -38,8 +37,20 @@ Potential Graph permissions:
 
 Notes:
 
+- Personal Microsoft accounts are not supported for sign-in log diagnostics.
 - Sign-in log availability depends on tenant licensing and retention.
 - If sign-in logs are unavailable, the tool must not invent a diagnosis.
+
+### License details
+
+Purpose:
+
+- Read assigned license details for one user.
+- Identify missing license indicators relevant to the selected service.
+
+Potential Graph permissions:
+
+- LicenseAssignment.Read.All
 
 ### Conditional Access details from sign-ins
 
@@ -111,7 +122,7 @@ Operational mode must be used only by an administrator or support engineer with 
 
 Permissions below are proposed for planning and must be verified against current Microsoft documentation before implementation.
 
-### Proposed read-only permissions
+### Baseline read-only permissions
 
 #### User.Read.All
 
@@ -121,15 +132,7 @@ Purpose:
 - Confirm that the user exists.
 - Read basic user profile details needed for diagnosis.
 
-Status: to verify against Microsoft documentation before implementation.
-
-#### Directory.Read.All
-
-Purpose:
-
-- Read directory properties needed for account status, user type, and assigned license details.
-
-Status: to verify against Microsoft documentation before implementation.
+Verification note: baseline delegated read permission for user lookup in Phase 5A.
 
 #### AuditLog.Read.All
 
@@ -138,7 +141,26 @@ Purpose:
 - Read recent sign-in logs for the target user.
 - Inspect failure reason, resource, client app, Conditional Access status, and device details returned by sign-in events.
 
-Status: to verify against Microsoft documentation before implementation.
+Verification note: least-privileged delegated permission for Microsoft Graph `signIns` API for work/school accounts. Personal Microsoft accounts are not supported for sign-in logs.
+
+#### LicenseAssignment.Read.All
+
+Purpose:
+
+- Read user license details through Microsoft Graph license details APIs.
+
+Verification note: least-privileged delegated work/school permission for Microsoft Graph license details APIs.
+
+### Optional broader/future permissions
+
+#### Directory.Read.All
+
+Purpose:
+
+- Broader fallback for directory properties depending on tenant/admin context or SDK behavior.
+- Should not be part of the first baseline if `User.Read.All` and `LicenseAssignment.Read.All` are sufficient.
+
+Status: optional/broader fallback; avoid unless implementation evidence shows it is needed.
 
 #### Policy.Read.All
 
@@ -146,7 +168,7 @@ Purpose:
 
 - Only if later policy definition lookup is added beyond Conditional Access details returned in sign-in logs.
 
-Status: deferred; to verify against Microsoft documentation before implementation.
+Status: deferred; not part of the Phase 5A baseline.
 
 #### DeviceManagementManagedDevices.Read.All
 
@@ -154,7 +176,7 @@ Purpose:
 
 - Only if a later Intune managed-device compliance deep dive is added.
 
-Status: deferred; to verify against Microsoft documentation before implementation.
+Status: deferred; not part of the Phase 5A baseline.
 
 ### Phase 5A permission boundaries
 

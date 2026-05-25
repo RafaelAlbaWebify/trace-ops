@@ -114,10 +114,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\collector\Test-TraceGraphR
 If Graph connection is needed, connect manually with planned read-only scopes:
 
 ```powershell
-Connect-MgGraph -Scopes "User.Read.All","Directory.Read.All","AuditLog.Read.All"
+Connect-MgGraph -Scopes "User.Read.All","AuditLog.Read.All","LicenseAssignment.Read.All"
 ```
 
 Tenant admin consent may be required before these scopes are usable.
+
+The current preflight script was created before the Phase 5A permission verification update and may need to be updated to check `LicenseAssignment.Read.All` instead of `Directory.Read.All`.
 
 ## Manual Test Commands
 

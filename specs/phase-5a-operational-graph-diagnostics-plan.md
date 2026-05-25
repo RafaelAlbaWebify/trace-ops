@@ -165,7 +165,15 @@ Operational mode must follow these rules:
 
 ## J. Proposed Read-Only Permission Model
 
-These permissions are proposed and must be verified against current Microsoft documentation before implementation.
+These baseline permissions are verified for the planned Phase 5A evidence scope. Operational mode uses delegated interactive Microsoft Graph scopes through `Connect-MgGraph`.
+
+Example connection command:
+
+```powershell
+Connect-MgGraph -Scopes "User.Read.All","AuditLog.Read.All","LicenseAssignment.Read.All"
+```
+
+Personal Microsoft accounts are not supported for sign-in log diagnostics.
 
 ### User.Read.All
 
@@ -174,15 +182,7 @@ Purpose:
 - Read user profile details by UPN.
 - Confirm that the user exists.
 
-Status: to verify against Microsoft documentation before implementation.
-
-### Directory.Read.All
-
-Purpose:
-
-- Read directory properties that may be needed for account status, user type, and license assignment details.
-
-Status: to verify against Microsoft documentation before implementation.
+Status: baseline read-only delegated scope for user lookup.
 
 ### AuditLog.Read.All
 
@@ -191,7 +191,24 @@ Purpose:
 - Read recent sign-in logs for the target user.
 - Inspect failure reasons, resource, client app, Conditional Access status, and device details returned by sign-in events.
 
-Status: to verify against Microsoft documentation before implementation.
+Status: least-privileged delegated permission for Microsoft Graph `signIns` API for work/school accounts.
+
+### LicenseAssignment.Read.All
+
+Purpose:
+
+- Read assigned license details for the target user.
+
+Status: least-privileged delegated work/school permission for Microsoft Graph license details APIs.
+
+### Directory.Read.All
+
+Purpose:
+
+- Optional broader fallback depending on tenant/admin context or SDK behavior.
+- Avoid in the first baseline if `User.Read.All` and `LicenseAssignment.Read.All` are sufficient.
+
+Status: optional/broader fallback.
 
 ### Policy.Read.All
 
@@ -199,7 +216,7 @@ Purpose:
 
 - Only if later policy definition lookup is added beyond details returned in sign-in logs.
 
-Status: deferred; to verify against Microsoft documentation before implementation.
+Status: deferred; not part of the Phase 5A baseline.
 
 ### DeviceManagementManagedDevices.Read.All
 
@@ -207,7 +224,7 @@ Purpose:
 
 - Only if a later Intune compliance deep dive is added.
 
-Status: deferred; to verify against Microsoft documentation before implementation.
+Status: deferred; not part of the Phase 5A baseline.
 
 ## K. Testing Strategy
 
