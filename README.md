@@ -1,100 +1,48 @@
-﻿# TRACE
+# TRACE
 
 **Troubleshooting Reports Across Cloud & Endpoints**
 
-TRACE is a local-first, read-only IT Operations diagnostic toolkit for support engineers. It turns scattered evidence from identity, endpoint, DNS, network, and file-access checks into clear troubleshooting findings with confidence, limitations, safe next steps, and explicit non-actions.
+TRACE is a local-first, read-only IT Operations diagnostic portfolio project. It turns scattered support evidence from identity, endpoint, DNS, network, and file-access checks into structured troubleshooting findings with confidence, limitations, safe next steps, and explicit non-actions.
 
-TRACE is not a cybersecurity scanner, penetration-testing tool, or automatic remediation platform. Its purpose is operational diagnosis: explain what evidence points to, what is still unknown, and what should not be changed until the cause is proven.
+It is designed to demonstrate a support engineering workflow: collect evidence, validate inputs, classify likely causes, explain what is still unknown, and produce support-ready output without making changes to the environment.
 
-## Current Status
+TRACE is not a cybersecurity scanner, penetration-testing tool, monitoring platform, or automatic remediation tool.
 
-TRACE has evolved from a sample Microsoft 365 access analyzer into a multi-module IT Ops diagnostic project with a real FactoryOps homelab validation path.
+## Public v1 status
 
-Implemented and validated areas include:
+TRACE public v1 includes:
 
-- Synthetic Microsoft 365 access-path sample workflow.
-- Real FactoryOps computer diagnostic scenario against a domain-joined workstation.
-- Real FactoryOps file-share access diagnostic scenario against a domain-joined file server.
-- Backend API validation through FastAPI.
-- PowerShell collectors with structured JSON output.
-- Read-only evidence contract across modules.
-- Local evidence/report capture packages for portfolio and troubleshooting handoff.
+- A modular React and TypeScript operator shell.
+- FastAPI backend endpoints for diagnostic workflows.
+- PowerShell read-only collectors.
+- Deterministic analyzer rules.
+- Local JSON and HTML-style report generation paths.
+- Public-safe sample evidence.
+- Backend and frontend tests.
+- Documentation for read-only boundaries and portfolio positioning.
 
-## Validated FactoryOps Homelab
+Validated baseline before public v1 publication:
 
-TRACE has been tested in a local FactoryOps-style Windows domain lab:
+- Frontend production build: passed.
+- Frontend tests: passed, 5/5.
+- Backend pytest: passed, 106/106.
+- Responsive shell accepted across desktop, laptop, tablet-width, and narrow layouts.
 
-```text
-Domain: factory.local
+## What TRACE diagnoses today
 
-fw01           pfSense router/firewall between lab zones
-dc01           Domain Controller, DNS, AD
-trace-admin01  TRACE runner / management workstation
-office-pc01    domain-joined workstation target
-filesrv01      domain-joined file server target
-```
-
-Validated network zones:
-
-```text
-Management: 10.10.10.0/24
-Office:     10.20.10.0/24
-Production: 10.30.10.0/24
-Servers:    10.40.10.0/24
-```
-
-## Real Scenario: File-Share Access Diagnostic
-
-The strongest current TRACE scenario is a real file-share access investigation:
-
-```text
-Share:          \\filesrv01.factory.local\Finance
-Allowed user:   FACTORY\finance.ok
-Blocked user:   FACTORY\finance.noaccess
-Required group: FACTORY\GG_FINANCE_SHARE_READ
-```
-
-TRACE proves that the network and server path are healthy while the blocked user lacks the required authorization group.
-
-The blocked-user API result returns:
-
-```text
-status: finding
-finding_id: FACTORYOPS_FILE_SHARE_USER_MISSING_REQUIRED_GROUP
-membership_proven: false
-observed_access_denied: true
-smb_tcp_445_reachable: true
-```
-
-The allowed-user API result returns:
-
-```text
-status: success
-membership_proven: true
-findings: []
-```
-
-This is a realistic support scenario: a user cannot access a department share, but DNS and SMB are working. TRACE correlates AD user state, required group membership, observed access denial, and safe next steps without modifying anything.
-
-## What TRACE Diagnoses Today
-
-Current modules and scenarios include:
+Current public v1 workflows cover:
 
 - Microsoft 365 access-path sample diagnostics.
-- FactoryOps computer readiness diagnostics.
-- FactoryOps DNS and AD readiness evidence checks.
-- FactoryOps file-share access diagnostics.
-- Read-only evidence boundary verification.
+- Local readiness checks.
+- AD user access readiness checks.
+- DNS diagnostic evidence.
+- FactoryOps-style computer readiness checks.
+- FactoryOps-style file-share access diagnostics.
+- Diagnostic history and report retrieval.
 
-TRACE can distinguish between:
+The strongest public-safe scenario is a file-share access investigation: a user cannot access a department share, but DNS and SMB are healthy. TRACE correlates AD user state, required group membership, observed access denial, and safe next steps without modifying anything.
 
-- DNS or name-resolution problems.
-- Network/port reachability problems.
-- AD user/object readiness problems.
-- Group-membership authorization problems.
-- A healthy allowed-user path versus a blocked-user access-denied path.
-
-## What TRACE Does Not Do
+## What TRACE does not do
 
 TRACE deliberately does not:
 
@@ -109,34 +57,61 @@ TRACE deliberately does not:
 
 Its output is intended to support a ticket, handoff, escalation, or safe troubleshooting decision.
 
-## Architecture Overview
+## Architecture overview
 
 ```text
 trace-ops/
-|-- collector/   PowerShell read-only collectors and tests
-|-- backend/     Python FastAPI API, validation, analyzer rules, local reports
-|-- frontend/    React + TypeScript + Vite local UI
-|-- samples/     Synthetic and public-safe sample scenarios
-|-- specs/       Product, technical, permissions, and test plans
-`-- docs/        Architecture, demo scripts, evidence notes, and portfolio docs
+|-- backend/     Python FastAPI API, validation, analyzer rules, local report paths
+|-- collector/   PowerShell read-only collectors and collector tests
+|-- frontend/    React, TypeScript, Vite, modular TRACE operator shell
+|-- samples/     Public-safe sample evidence
+`-- docs/        Release notes, read-only boundaries, portfolio documentation
 ```
 
-Typical data flow:
+Typical diagnostic flow:
 
 ```text
-Operator input -> Backend API -> PowerShell collector -> Structured JSON
-               -> Backend validation -> Deterministic diagnostic rule
-               -> Finding, evidence, limitations, safe next steps
+Operator input
+  -> Backend API
+  -> Read-only collector or sample evidence
+  -> Structured JSON
+  -> Backend validation
+  -> Deterministic diagnostic rule
+  -> Finding, evidence, limitations, safe next steps, non-actions
 ```
 
-## Backend Endpoints
+## Frontend structure
 
-Current important endpoints include:
+The public v1 frontend is organized around a modular shell:
+
+```text
+frontend/src/App.tsx
+frontend/src/api/traceApi.ts
+frontend/src/api/generatedEndpoints.ts
+frontend/src/ui/AppShell.tsx
+frontend/src/ui/TopBar.tsx
+frontend/src/ui/SidebarNav.tsx
+frontend/src/ui/ResultPanel.tsx
+frontend/src/modules/registry.ts
+frontend/src/modules/overview/OverviewPage.tsx
+frontend/src/modules/shareAccess/ShareAccessPage.tsx
+frontend/src/modules/dns/DnsLookupPage.tsx
+frontend/src/modules/identity/AdUserAccessPage.tsx
+frontend/src/modules/readiness/ReadinessPage.tsx
+frontend/src/modules/history/HistoryPage.tsx
+frontend/src/styles/trace-shell.css
+```
+
+## Backend endpoints
+
+Important public v1 endpoints include:
 
 ```text
 GET  /api/health
 GET  /api/modules
 POST /api/scan/user-access
+POST /api/diagnostics/dns
+POST /api/diagnostics/ad-user-access
 POST /api/diagnostics/factoryops/computer
 POST /api/diagnostics/factoryops/file-share-access
 GET  /api/history
@@ -144,49 +119,33 @@ GET  /api/history/{history_id}/report.json
 GET  /api/history/{history_id}/report.html
 ```
 
-## Run Backend
+## Run locally
 
-From the repository root:
+Backend:
 
 ```powershell
 cd .\backend
 ..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Or, when working from the homelab runtime copy:
+Frontend:
 
 ```powershell
-cd C:\TraceOps\trace-ops\backend
-C:\TraceOps\trace-ops\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+cd .\frontend
+npm install
+npm run dev
 ```
 
-Backend URL:
+Typical local URLs:
 
 ```text
-http://127.0.0.1:8000
+Backend:  http://127.0.0.1:8000
+Frontend: http://127.0.0.1:5173
 ```
 
-## Example API Request: File-Share Access
+## Example finding
 
-```powershell
-$Body = @{
-  share_host = "filesrv01"
-  share_name = "Finance"
-  user_sam_account_name = "finance.noaccess"
-  required_group_sam_account_name = "GG_FINANCE_SHARE_READ"
-  domain_name = "factory.local"
-  dns_server = "10.40.10.10"
-  observed_access_denied = $true
-} | ConvertTo-Json -Depth 8
-
-Invoke-RestMethod `
-  -Uri "http://127.0.0.1:8000/api/diagnostics/factoryops/file-share-access" `
-  -Method Post `
-  -ContentType "application/json" `
-  -Body $Body
-```
-
-## Example Finding
+A public-safe file-share access diagnostic can return a finding like:
 
 ```json
 {
@@ -206,54 +165,38 @@ Invoke-RestMethod `
 }
 ```
 
-## Portfolio Value
+## Portfolio value
 
-TRACE demonstrates practical IT Operations engineering:
+TRACE demonstrates practical IT Operations and Support Engineering skills:
 
 - Evidence-based troubleshooting.
-- Safe read-only diagnostic design.
+- Read-only diagnostic design.
 - PowerShell collector design.
 - FastAPI backend contracts.
+- React and TypeScript frontend structure.
 - Structured JSON evidence.
 - Deterministic diagnostic rules.
-- Homelab validation with AD, DNS, pfSense routing, SMB, and Windows Server.
+- Public-safe sample scenarios.
 - Operator-friendly findings with safe next steps and explicit limitations.
 
-The project is designed to be explainable in interviews: it shows how a support engineer can build operational tooling that reduces guesswork without taking unsafe remediation actions.
+The project is intended to be explainable in interviews: it shows how a support engineer can build operational tooling that reduces guesswork without taking unsafe remediation actions.
+
+## Public release notes
+
+See:
+
+```text
+docs/github_release_notes_v1_draft.md
+docs/public_release_checklist.md
+docs/read_only_boundary.md
+```
 
 ## Roadmap
 
-Recommended next work:
+Future work should stay aligned with IT Operations and Support Engineering:
 
-1. Add a frontend UI card for the FactoryOps file-share diagnostic.
-2. Add a public-safe sanitized demo mode with screenshots.
-3. Add user account readiness diagnostics.
-4. Add workstation/domain secure-channel diagnostics.
-5. Add DNS stale/wrong-record diagnostics.
-6. Prepare a clean public release package.
-
-## Development Approach
-
-This project follows a specs-driven development workflow. Before implementation tasks, read `AGENTS.md` and the relevant files in `specs/`.
-
-Keep TRACE read-only unless a future spec explicitly changes that boundary.
-
-## TRACE v1 Console Release
-
-Milestone 1 reorganizes TRACE around a professional operator dashboard and a reusable diagnostic module registry.
-
-Delivery workflow:
-
-- One milestone = one package.
-- One installer.
-- One verifier.
-- One report ZIP.
-- Module registry first.
-- Standard diagnostic output contract.
-- Golden real-lab scenarios reused for validation.
-
-The goal is to keep future diagnostics faster to add while preserving TRACE's read-only operational boundary.
-
-## Public release checklist
-
-Before publishing public updates, review docs/public_release_checklist.md and keep generated reports, backups, runtime bundles, caches, virtual environments, and private lab evidence out of the public repository.
+1. Add a short public demo video.
+2. Add more public-safe diagnostic examples.
+3. Improve documentation for interview walkthroughs.
+4. Add carefully scoped read-only Microsoft Graph integration only when safe.
+5. Keep remediation outside TRACE unless a future design explicitly changes that boundary.
