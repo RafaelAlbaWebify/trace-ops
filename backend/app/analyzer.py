@@ -6,6 +6,10 @@ from .models import CollectorResult
 Finding = Dict[str, Any]
 
 
+EVIDENCE_CONTRACT_VERSION = "TRACE_FINDING_EVIDENCE_V1"
+DEFAULT_SOURCE_MODULE = "m365-access-path-analyzer"
+
+
 def _finding(
     *,
     rule_id: str,
@@ -17,13 +21,31 @@ def _finding(
     next_steps: List[str],
     what_not_to_change_yet: List[str],
     limitations: List[str],
+    evidence_missing: Optional[List[str]] = None,
+    source_module: str = DEFAULT_SOURCE_MODULE,
 ) -> Finding:
+    """Build a stable TRACE finding while preserving the older UI/report aliases.
+
+    Phase 2 hardens every finding around an explicit evidence contract.
+    The legacy keys (rule_id, evidence, next_steps) intentionally remain so
+    the current frontend and reports keep working while newer modules adopt
+    finding_id, evidence_used, evidence_missing, safe_next_steps and
+    source_module.
+    """
+
+    missing = evidence_missing or limitations
+
     return {
+        "finding_id": rule_id,
         "rule_id": rule_id,
         "title": title,
         "severity": severity,
         "confidence": confidence,
         "likely_cause": likely_cause,
+        "evidence_used": evidence,
+        "evidence_missing": missing,
+        "source_module": source_module,
+        "safe_next_steps": next_steps,
         "evidence": evidence,
         "next_steps": next_steps,
         "what_not_to_change_yet": what_not_to_change_yet,
@@ -288,6 +310,7 @@ def analyze_collector_result(result: CollectorResult) -> Dict[str, Any]:
     findings = _build_findings(result)
     primary_finding: Optional[Finding] = findings[0] if findings else None
     limitations = sorted({item for finding in findings for item in finding["limitations"]})
+    source_modules = sorted({finding["source_module"] for finding in findings})
 
     if primary_finding:
         summary = primary_finding["likely_cause"]
@@ -300,9 +323,11 @@ def analyze_collector_result(result: CollectorResult) -> Dict[str, Any]:
 
     return {
         "status": status,
+        "evidence_contract_version": EVIDENCE_CONTRACT_VERSION,
         "primary_finding": primary_finding,
         "findings": findings,
         "summary": summary,
         "confidence": confidence,
         "limitations": limitations,
+        "source_modules": source_modules,
     }

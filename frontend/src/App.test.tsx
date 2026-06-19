@@ -1,162 +1,136 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
-const apiMocks = vi.hoisted(() => ({
-  getHealth: vi.fn(),
-  getModules: vi.fn(),
-  getHistory: vi.fn(),
-  runUserAccessScan: vi.fn()
-}));
-
-vi.mock("./api", () => ({
-  AFFECTED_SERVICES: [
-    "Microsoft 365 general access",
-    "Exchange Online / Outlook",
-    "SharePoint Online / OneDrive",
-    "Microsoft Teams"
-  ],
-  SAMPLE_SCENARIOS: [
-    "account-disabled",
-    "missing-license",
-    "ca-details-missing",
-    "ca-device-noncompliant",
-    "mfa-requirement-not-satisfied",
-    "no-recent-signin-evidence",
-    "successful-access-baseline"
-  ],
-  getHealth: apiMocks.getHealth,
-  getModules: apiMocks.getModules,
-  getHistory: apiMocks.getHistory,
-  runUserAccessScan: apiMocks.runUserAccessScan,
-  jsonReportUrl: (historyId: number) => `/api/history/${historyId}/report.json`,
-  htmlReportUrl: (historyId: number) => `/api/history/${historyId}/report.html`
-}));
-
-const historyResponse = {
-  status: "ok",
-  records: [
-    {
-      id: 42,
-      created_at: "2026-05-25T10:00:00Z",
-      module: "m365-access-path-analyzer",
-      scenario: "ca-device-noncompliant",
-      user_principal_name: "jane.doe@example.com",
-      affected_service: "Microsoft Teams",
-      status: "success"
-    }
-  ]
+const shareAccessFinding = {
+  status: "finding",
+  finding_id: "FACTORYOPS_FILE_SHARE_USER_MISSING_REQUIRED_GROUP",
+  severity: "medium",
+  confidence: "high",
+  summary: "The affected user is not proven to be a member of the required finance share group.",
+  evidence_used: ["DNS resolution was attempted.", "SMB reachability was checked.", "Group membership evidence was evaluated."],
+  evidence_missing: ["Direct end-user interactive sign-in evidence was not collected."],
+  safe_next_steps: ["Validate group membership with the service owner.", "Attach TRACE evidence to the ticket."],
+  do_not_change_yet: ["Do not modify AD groups until ownership is confirmed."],
+  limitations: ["Lab diagnostic evidence only."],
+  read_only_boundary: "kept"
 };
 
-const scanResponse = {
-  status: "success",
-  history_id: 42,
-  result: {
-    scenario_id: "ca-device-noncompliant",
-    module: "m365-access-path-analyzer",
-    input: {
-      user_principal_name: "jane.doe@example.com",
-      affected_service: "Microsoft Teams",
-      scenario: "ca-device-noncompliant"
-    }
-  },
-  analysis: {
-    status: "finding",
-    primary_finding: {
-      rule_id: "CA_DEVICE_COMPLIANCE_BLOCK",
-      title: "Conditional Access requires a compliant device",
-      severity: "high",
-      confidence: "high",
-      likely_cause: "Conditional Access requires a compliant device, but the sign-in device is non-compliant.",
-      evidence: ["Recent Teams sign-in failed.", "Device compliance state is nonCompliant."],
-      next_steps: ["Check Intune compliance policy failure for the device."],
-      what_not_to_change_yet: ["Do not disable Conditional Access globally."],
-      limitations: ["Synthetic sample data only."]
-    },
-    findings: [],
-    summary: "A compliant device requirement appears to be blocking access.",
-    confidence: "high",
-    limitations: ["Synthetic sample data only."]
-  }
-};
-
-function renderApp() {
-  apiMocks.getHealth.mockResolvedValue({ status: "ok", product: "TRACE", module_count: 1 });
-  apiMocks.getModules.mockResolvedValue({
-    product: "TRACE",
-    modules: [{ id: "m365-access-path-analyzer", name: "M365 Access Path Analyzer" }]
-  });
-  apiMocks.getHistory.mockResolvedValue(historyResponse);
-  apiMocks.runUserAccessScan.mockResolvedValue(scanResponse);
-
-  return render(<App />);
+function jsonResponse(data: unknown) {
+  return {
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () => JSON.stringify(data),
+    json: async () => data
+  } as Response;
 }
 
-describe("TRACE frontend MVP", () => {
+function installFetchMock() {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes("health") || url.endsWith("/status")) {
+      return jsonResponse({ status: "ok" });
+    }
+    if (url.includes("/api/scan/user-access") || url.includes("history") || url.includes("scans")) {
+      return jsonResponse([{ id: 1, user: "jane.doe@example.com", service: "SharePoint Online", status: "ok" }]);
+    }
+    if (init?.method === "POST") {
+      return jsonResponse(shareAccessFinding);
+    }
+    return jsonResponse({});
+  });
+
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+async function openNavGroup(name: RegExp) {
+  const nav = screen.getByRole("navigation", { name: /diagnostic navigation/i });
+  const summary = within(nav).getByText(name, { selector: "summary" });
+  const details = summary.closest("details");
+  if (details && !details.hasAttribute("open")) {
+    await userEvent.click(summary);
+  }
+}
+
+describe("TRACE rebuilt operator shell", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    installFetchMock();
   });
 
-  it("renders TRACE header and product text", async () => {
-    renderApp();
-
-    expect(screen.getAllByText("TRACE").length).toBeGreaterThan(0);
-    expect(screen.getByText("Troubleshooting Reports Across Cloud & Endpoints")).toBeInTheDocument();
-    expect(await screen.findByText("Backend ok")).toBeInTheDocument();
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
-  it("shows the sample-mode limitation", () => {
-    renderApp();
+  it("renders the professional shell landmarks", async () => {
+    render(<App />);
 
-    expect(screen.getByText("Sample mode only")).toBeInTheDocument();
-    expect(
-      screen.getByText("No tenant connection, Graph permissions, or remediation actions are available in this MVP.")
-    ).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: /diagnostic navigation/i })).toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: /diagnostic result panel/i })).toBeInTheDocument();
+    expect(await screen.findByText(/Backend ok|Backend unknown/i)).toBeInTheDocument();
   });
 
-  it("renders the scan form controls", () => {
-    renderApp();
+  it("opens the share access workflow by default", () => {
+    render(<App />);
+    const main = screen.getByRole("main");
 
-    expect(screen.getByLabelText("User principal name")).toBeInTheDocument();
-    expect(screen.getByLabelText("Affected service")).toBeInTheDocument();
-    expect(screen.getByLabelText("Sample scenario")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "mfa-requirement-not-satisfied" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run scan" })).toBeInTheDocument();
+    expect(within(main).getByRole("heading", { name: /Share access/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Share host/i)).toHaveValue("filesrv01");
+    expect(screen.getByLabelText(/User SAM account/i)).toHaveValue("finance.noaccess");
+    expect(screen.getByRole("button", { name: /Run diagnostic/i })).toBeInTheDocument();
+    expect(screen.getByText(/DNS resolution/i)).toBeInTheDocument();
   });
 
-  it("renders analyzer results and limitations after a successful scan", async () => {
+  it("runs the share access diagnostic and renders a finding", async () => {
     const user = userEvent.setup();
-    renderApp();
+    render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Run scan" }));
+    await user.click(screen.getByRole("button", { name: /Run diagnostic/i }));
 
-    expect(await screen.findByText("CA_DEVICE_COMPLIANCE_BLOCK")).toBeInTheDocument();
-    expect(screen.getByText("Conditional Access requires a compliant device, but the sign-in device is non-compliant.")).toBeInTheDocument();
-    expect(screen.getByText("Recent Teams sign-in failed.")).toBeInTheDocument();
-    expect(screen.getByText("Check Intune compliance policy failure for the device.")).toBeInTheDocument();
-    expect(screen.getByText("Do not disable Conditional Access globally.")).toBeInTheDocument();
-    expect(screen.getByText("Synthetic sample data only.")).toBeInTheDocument();
+    const findings = await screen.findAllByText(/FACTORYOPS_FILE_SHARE_USER_MISSING_REQUIRED_GROUP/i);
+    expect(findings.length).toBeGreaterThan(0);
+
+    const summaryMatches = await screen.findAllByText(/The affected user is not proven/i);
+    expect(summaryMatches.length).toBeGreaterThan(0);
+
+    expect(screen.getByText(/Copy/i)).toBeInTheDocument();
+    expect(screen.getByText(/Raw JSON/i)).toBeInTheDocument();
+  });
+
+  it("shows overview guidance and module maturity labels", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Overview/i }));
+
+    const main = screen.getByRole("main");
+    expect(within(main).getByRole("heading", { name: /Operator dashboard/i })).toBeInTheDocument();
+    expect(within(main).getByRole("heading", { name: /How to use TRACE/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Validated lab diagnostic/i).length).toBeGreaterThan(0);
+  });
+
+  it("shows diagnostic history from the backend", async () => {
+    const user = userEvent.setup();
+    render(<App />);
 
     await waitFor(() => {
-      expect(apiMocks.runUserAccessScan).toHaveBeenCalledWith({
-        user_principal_name: "jane.doe@example.com",
-        affected_service: "Microsoft Teams",
-        scenario: "ca-device-noncompliant"
-      });
+      expect(screen.getByText(/Backend ok|Backend unknown/i)).toBeInTheDocument();
+    });
+
+    await openNavGroup(/Evidence/i);
+    await user.click(screen.getByRole("button", { name: /History/i }));
+
+    const main = screen.getByRole("main");
+    expect(within(main).getByRole("heading", { name: /Diagnostic run history/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(within(main).getByText(/jane.doe@example.com/i)).toBeInTheDocument();
     });
   });
-
-  it("renders recent history with JSON and HTML report links", async () => {
-    renderApp();
-
-    expect(await screen.findByText("Recent History")).toBeInTheDocument();
-    expect(screen.getByText("jane.doe@example.com")).toBeInTheDocument();
-
-    const jsonLink = screen.getByRole("link", { name: "JSON" });
-    const htmlLink = screen.getByRole("link", { name: "HTML" });
-
-    expect(jsonLink).toHaveAttribute("href", "/api/history/42/report.json");
-    expect(htmlLink).toHaveAttribute("href", "/api/history/42/report.html");
-  });
 });
+

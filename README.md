@@ -1,97 +1,163 @@
-# TRACE
+﻿# TRACE
 
 **Troubleshooting Reports Across Cloud & Endpoints**
 
-TRACE is a local-first IT Operations diagnostic toolkit that helps support engineers turn scattered Microsoft 365, Entra ID, endpoint, DNS, mail flow, and infrastructure signals into clear evidence-based troubleshooting reports.
+TRACE is a local-first, read-only IT Operations diagnostic toolkit for support engineers. It turns scattered evidence from identity, endpoint, DNS, network, and file-access checks into clear troubleshooting findings with confidence, limitations, safe next steps, and explicit non-actions.
 
-The current MVP is a local sample-mode implementation of the first module, **M365 Access Path Analyzer**.
+TRACE is not a cybersecurity scanner, penetration-testing tool, or automatic remediation platform. Its purpose is operational diagnosis: explain what evidence points to, what is still unknown, and what should not be changed until the cause is proven.
 
-## Current MVP Status
+## Current Status
 
-TRACE currently supports an end-to-end synthetic workflow:
+TRACE has evolved from a sample Microsoft 365 access analyzer into a multi-module IT Ops diagnostic project with a real FactoryOps homelab validation path.
 
-- PowerShell collector scripts load sample JSON evidence.
-- The FastAPI backend validates collector output, runs deterministic analyzer rules, stores local SQLite history, and serves JSON/HTML reports.
-- The React + TypeScript + Vite frontend calls the backend API, displays analyzer results, shows recent history, and links to saved reports.
+Implemented and validated areas include:
 
-This MVP does not connect to Microsoft Graph or a real Microsoft 365 tenant.
+- Synthetic Microsoft 365 access-path sample workflow.
+- Real FactoryOps computer diagnostic scenario against a domain-joined workstation.
+- Real FactoryOps file-share access diagnostic scenario against a domain-joined file server.
+- Backend API validation through FastAPI.
+- PowerShell collectors with structured JSON output.
+- Read-only evidence contract across modules.
+- Local evidence/report capture packages for portfolio and troubleshooting handoff.
 
-## First Module: M365 Access Path Analyzer
+## Validated FactoryOps Homelab
 
-M365 Access Path Analyzer investigates Microsoft 365 access failures by correlating:
+TRACE has been tested in a local FactoryOps-style Windows domain lab:
 
-- identity status
-- licensing
-- MFA/authentication signals where available in evidence
-- recent sign-in logs
-- Conditional Access results
-- device compliance evidence
+```text
+Domain: factory.local
 
-The goal is to explain why a user cannot access Microsoft 365 resources and provide support-ready next steps with evidence, confidence, and limitations.
+fw01           pfSense router/firewall between lab zones
+dc01           Domain Controller, DNS, AD
+trace-admin01  TRACE runner / management workstation
+office-pc01    domain-joined workstation target
+filesrv01      domain-joined file server target
+```
+
+Validated network zones:
+
+```text
+Management: 10.10.10.0/24
+Office:     10.20.10.0/24
+Production: 10.30.10.0/24
+Servers:    10.40.10.0/24
+```
+
+## Real Scenario: File-Share Access Diagnostic
+
+The strongest current TRACE scenario is a real file-share access investigation:
+
+```text
+Share:          \\filesrv01.factory.local\Finance
+Allowed user:   FACTORY\finance.ok
+Blocked user:   FACTORY\finance.noaccess
+Required group: FACTORY\GG_FINANCE_SHARE_READ
+```
+
+TRACE proves that the network and server path are healthy while the blocked user lacks the required authorization group.
+
+The blocked-user API result returns:
+
+```text
+status: finding
+finding_id: FACTORYOPS_FILE_SHARE_USER_MISSING_REQUIRED_GROUP
+membership_proven: false
+observed_access_denied: true
+smb_tcp_445_reachable: true
+```
+
+The allowed-user API result returns:
+
+```text
+status: success
+membership_proven: true
+findings: []
+```
+
+This is a realistic support scenario: a user cannot access a department share, but DNS and SMB are working. TRACE correlates AD user state, required group membership, observed access denial, and safe next steps without modifying anything.
+
+## What TRACE Diagnoses Today
+
+Current modules and scenarios include:
+
+- Microsoft 365 access-path sample diagnostics.
+- FactoryOps computer readiness diagnostics.
+- FactoryOps DNS and AD readiness evidence checks.
+- FactoryOps file-share access diagnostics.
+- Read-only evidence boundary verification.
+
+TRACE can distinguish between:
+
+- DNS or name-resolution problems.
+- Network/port reachability problems.
+- AD user/object readiness problems.
+- Group-membership authorization problems.
+- A healthy allowed-user path versus a blocked-user access-denied path.
+
+## What TRACE Does Not Do
+
+TRACE deliberately does not:
+
+- Change AD users, groups, passwords, or memberships.
+- Change DNS records.
+- Change firewall rules.
+- Change NTFS or SMB share permissions.
+- Restart services or run remote remediation.
+- Store credentials or tokens.
+- Impersonate end users.
+- Perform offensive security testing.
+
+Its output is intended to support a ticket, handoff, escalation, or safe troubleshooting decision.
 
 ## Architecture Overview
 
 ```text
 trace-ops/
-|-- collector/   PowerShell sample-mode evidence collector
-|-- backend/     Python FastAPI API, analyzer, SQLite history, reports
+|-- collector/   PowerShell read-only collectors and tests
+|-- backend/     Python FastAPI API, validation, analyzer rules, local reports
 |-- frontend/    React + TypeScript + Vite local UI
-|-- samples/     Synthetic scenario JSON used by tests and demos
+|-- samples/     Synthetic and public-safe sample scenarios
 |-- specs/       Product, technical, permissions, and test plans
-`-- docs/        Supporting project assets
+`-- docs/        Architecture, demo scripts, evidence notes, and portfolio docs
 ```
 
-Data flow:
+Typical data flow:
 
 ```text
-Frontend -> Backend API -> PowerShell collector sample mode -> Backend validation
-         -> Analyzer rules -> SQLite history -> JSON/HTML reports -> Frontend
+Operator input -> Backend API -> PowerShell collector -> Structured JSON
+               -> Backend validation -> Deterministic diagnostic rule
+               -> Finding, evidence, limitations, safe next steps
 ```
 
-For the current MVP architecture diagram, see [docs/architecture.md](docs/architecture.md).
+## Backend Endpoints
 
-## Safety Boundaries
+Current important endpoints include:
 
-Current MVP boundaries:
-
-- sample mode only
-- no Microsoft Graph calls
-- no tenant connection
-- no delegated authentication flow yet
-- no remediation
-- no attack simulation
-- no token, password, or secret storage
-
-TRACE is not a tenant-wide security scanner, attack simulation platform, or automatic remediation tool.
-
-## Run Collector Tests
-
-From the repository root:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-Pester -Script .\collector\tests\Invoke-TraceM365AccessScan.Tests.ps1"
-```
-
-The collector currently reads synthetic sample data from `samples/` and outputs structured JSON.
-
-## Run Backend Tests
-
-From the repository root:
-
-```powershell
-cd C:\Users\ralba\Documents\GitHub\trace-ops\backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python -m pytest
+```text
+GET  /api/health
+GET  /api/modules
+POST /api/scan/user-access
+POST /api/diagnostics/factoryops/computer
+POST /api/diagnostics/factoryops/file-share-access
+GET  /api/history
+GET  /api/history/{history_id}/report.json
+GET  /api/history/{history_id}/report.html
 ```
 
 ## Run Backend
 
+From the repository root:
+
 ```powershell
-cd C:\Users\ralba\Documents\GitHub\trace-ops\backend
-.\.venv\Scripts\Activate.ps1
-python -m uvicorn app.main:app --reload
+cd .\backend
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Or, when working from the homelab runtime copy:
+
+```powershell
+cd C:\TraceOps\trace-ops\backend
+C:\TraceOps\trace-ops\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Backend URL:
@@ -100,95 +166,94 @@ Backend URL:
 http://127.0.0.1:8000
 ```
 
-Current backend endpoints include:
-
-- `GET /api/health`
-- `GET /api/modules`
-- `POST /api/scan/user-access`
-- `GET /api/history`
-- `GET /api/history/{history_id}/report.json`
-- `GET /api/history/{history_id}/report.html`
-
-Local SQLite history is stored at `backend/data/trace_history.sqlite3`. Local database files are ignored by Git.
-
-## Run Frontend
-
-In a second terminal, after the backend is running:
+## Example API Request: File-Share Access
 
 ```powershell
-cd C:\Users\ralba\Documents\GitHub\trace-ops\frontend
-npm install
-npm run build
-npm run dev
+$Body = @{
+  share_host = "filesrv01"
+  share_name = "Finance"
+  user_sam_account_name = "finance.noaccess"
+  required_group_sam_account_name = "GG_FINANCE_SHARE_READ"
+  domain_name = "factory.local"
+  dns_server = "10.40.10.10"
+  observed_access_denied = $true
+} | ConvertTo-Json -Depth 8
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/api/diagnostics/factoryops/file-share-access" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $Body
 ```
 
-Frontend URL:
+## Example Finding
 
-```text
-http://127.0.0.1:5173
+```json
+{
+  "status": "finding",
+  "finding_id": "FACTORYOPS_FILE_SHARE_USER_MISSING_REQUIRED_GROUP",
+  "severity": "high",
+  "confidence": "high",
+  "likely_cause": "The user is not present in the required AD group used to authorize read access to the file share.",
+  "safe_next_steps": [
+    "Confirm the user should have access with the data owner, then request membership in the required group through the normal approval path.",
+    "After membership is changed by an authorized admin, have the user sign out/in or purge tickets before retesting."
+  ],
+  "what_not_to_change_yet": [
+    "Do not broaden Everyone, Domain Users, or Authenticated Users permissions to fix a single access issue.",
+    "Do not change firewall, DNS, NTFS, share, or AD permissions from this diagnostic alone."
+  ]
+}
 ```
-
-The frontend Vite dev server proxies `/api` requests to the local backend.
-
-## Demo Flow
-
-A short portfolio/demo walkthrough is available in [docs/demo-script.md](docs/demo-script.md).
-
-The demo uses the synthetic `ca-device-noncompliant` scenario for `jane.doe@example.com` and shows how TRACE explains a Conditional Access compliant-device block, evidence, safe next steps, what not to change yet, and local JSON/HTML report links.
-
-It is a local sample-mode demo only: no Microsoft Graph calls, no tenant connection, and no remediation.
-
-## Screenshots
-
-These screenshots use synthetic sample data from the local sample-mode MVP. They do not show real tenant data and do not require Microsoft Graph or a Microsoft 365 tenant connection.
-
-![TRACE home screen in sample mode](docs/screenshots/trace-home-sample-mode.png)
-
-TRACE home screen showing the product header, backend health, M365 Access Path Analyzer module, sample-mode notice, and scan form.
-
-![TRACE scan result for Conditional Access device compliance](docs/screenshots/trace-scan-result-ca-device-compliance.png)
-
-Analyzer result for the synthetic `ca-device-noncompliant` scenario, showing the Conditional Access compliant-device finding, evidence, next steps, safe non-actions, confidence, and limitations.
-
-![TRACE recent history report links](docs/screenshots/trace-history-report-links.png)
-
-Recent local scan history with saved synthetic scan records and JSON/HTML report links.
-
-![TRACE HTML report](docs/screenshots/trace-html-report.png)
-
-Generated local HTML report for the synthetic scan, suitable for support handoff or ticket documentation.
-
-## Current Frontend Capabilities
-
-The UI currently supports:
-
-- backend health status
-- TRACE and M365 Access Path Analyzer module display
-- sample scan form with known synthetic scenarios
-- analyzer result display
-- primary finding, severity, confidence, likely cause, evidence, next steps, what not to change yet, and limitations
-- recent local scan history
-- JSON and HTML report links for saved scan history records
-
-There is no tenant connection UI and no Microsoft Graph permissions UI yet.
-
-## Current Limitations
-
-- Evidence comes from synthetic JSON files only.
-- Real Microsoft Graph collection is not implemented.
-- Authentication and permission checks are not implemented.
-- SQLite history is local development storage, not a multi-user data store.
-- Report generation is limited to JSON and HTML.
-- Future TRACE modules are described in specs but are not implemented.
-
-## Future Roadmap
-
-Planned operational work includes a read-only **User Access Health Scanner** for proactive access-readiness checks. The first version should scan an explicit CSV list of users, with Entra ID group scanning later. On-prem AD OU scanning may be considered later for hybrid/on-prem environments only, because Entra ID does not use classic OUs.
 
 ## Portfolio Value
 
-TRACE demonstrates a practical IT Operations troubleshooting workflow: collecting evidence, validating contracts between layers, applying deterministic diagnostic rules, storing local history, and producing support-ready reports. The project is intentionally framed around safe, read-only diagnosis rather than remediation or offensive simulation.
+TRACE demonstrates practical IT Operations engineering:
+
+- Evidence-based troubleshooting.
+- Safe read-only diagnostic design.
+- PowerShell collector design.
+- FastAPI backend contracts.
+- Structured JSON evidence.
+- Deterministic diagnostic rules.
+- Homelab validation with AD, DNS, pfSense routing, SMB, and Windows Server.
+- Operator-friendly findings with safe next steps and explicit limitations.
+
+The project is designed to be explainable in interviews: it shows how a support engineer can build operational tooling that reduces guesswork without taking unsafe remediation actions.
+
+## Roadmap
+
+Recommended next work:
+
+1. Add a frontend UI card for the FactoryOps file-share diagnostic.
+2. Add a public-safe sanitized demo mode with screenshots.
+3. Add user account readiness diagnostics.
+4. Add workstation/domain secure-channel diagnostics.
+5. Add DNS stale/wrong-record diagnostics.
+6. Prepare a clean public release package.
 
 ## Development Approach
 
-This project follows a specs-driven development workflow. Before implementation tasks, read `AGENTS.md` and the files in `specs/`.
+This project follows a specs-driven development workflow. Before implementation tasks, read `AGENTS.md` and the relevant files in `specs/`.
+
+Keep TRACE read-only unless a future spec explicitly changes that boundary.
+
+## TRACE v1 Console Release
+
+Milestone 1 reorganizes TRACE around a professional operator dashboard and a reusable diagnostic module registry.
+
+Delivery workflow:
+
+- One milestone = one package.
+- One installer.
+- One verifier.
+- One report ZIP.
+- Module registry first.
+- Standard diagnostic output contract.
+- Golden real-lab scenarios reused for validation.
+
+The goal is to keep future diagnostics faster to add while preserving TRACE's read-only operational boundary.
+
+## Public release checklist
+
+Before publishing public updates, review docs/public_release_checklist.md and keep generated reports, backups, runtime bundles, caches, virtual environments, and private lab evidence out of the public repository.

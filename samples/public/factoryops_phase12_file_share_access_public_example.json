@@ -1,0 +1,43 @@
+{
+  "scenario": "factoryops_phase12_file_share_access_public_example",
+  "environment": {
+    "domain": "example.local",
+    "trace_runner": "trace-admin01",
+    "file_server": "filesrv01",
+    "share": "\\\\filesrv01.example.local\\Finance"
+  },
+  "blocked_user_result": {
+    "status": "finding",
+    "finding_id": "FACTORYOPS_FILE_SHARE_USER_MISSING_REQUIRED_GROUP",
+    "user_sam_account_name": "finance.noaccess",
+    "required_group_sam_account_name": "GG_FINANCE_SHARE_READ",
+    "dns_resolved": true,
+    "smb_tcp_445_reachable": true,
+    "user_found": true,
+    "user_enabled": true,
+    "required_group_found": true,
+    "membership_proven": false,
+    "observed_access_denied": true,
+    "likely_cause": "The user is not present in the required AD group used to authorize read access to the file share."
+  },
+  "allowed_user_result": {
+    "status": "success",
+    "user_sam_account_name": "finance.ok",
+    "required_group_sam_account_name": "GG_FINANCE_SHARE_READ",
+    "membership_proven": true,
+    "findings": []
+  },
+  "read_only_boundary": {
+    "remediation_performed": false,
+    "dns_configuration_changed": false,
+    "network_configuration_changed": false,
+    "firewall_configuration_changed": false,
+    "ad_objects_modified": false,
+    "group_membership_changed": false,
+    "ntfs_or_share_permissions_changed": false,
+    "service_control_performed": false,
+    "remote_command_executed": false,
+    "credentials_or_tokens_stored": false,
+    "user_impersonation_performed": false
+  }
+}

@@ -9,9 +9,19 @@ from .config import (
 )
 from .models import HealthResponse, ModuleMetadata, ModulesResponse
 from .scan import router as scan_router
+from .readiness import router as readiness_router
+from .diagnostics import router as diagnostics_router
+from .homelab_scenarios import router as homelab_scenarios_router
+from .operator_runbook import router as operator_runbook_router
+from .mode_policy import router as mode_policy_router
 
 app = FastAPI(title="TRACE Backend")
 app.include_router(scan_router)
+app.include_router(readiness_router)
+app.include_router(diagnostics_router)
+app.include_router(homelab_scenarios_router)
+app.include_router(operator_runbook_router)
+app.include_router(mode_policy_router)
 
 
 def get_module_metadata() -> ModuleMetadata:

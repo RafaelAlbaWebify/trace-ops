@@ -14,6 +14,13 @@ DATA_DIR = BACKEND_DIR / "data"
 HISTORY_DB_PATH = DATA_DIR / "trace_history.sqlite3"
 SAMPLES_DIR = REPO_ROOT / "samples"
 COLLECTOR_SCRIPT_PATH = REPO_ROOT / "collector" / "Invoke-TraceM365AccessScan.ps1"
+GRAPH_READINESS_SCRIPT_PATH = REPO_ROOT / "collector" / "Test-TraceGraphReadiness.ps1"
+LOCAL_READINESS_SCRIPT_PATH = REPO_ROOT / "collector" / "Test-TraceLocalReadiness.ps1"
+DNS_DIAGNOSTIC_SCRIPT_PATH = REPO_ROOT / "collector" / "Invoke-TraceDnsDiagnostic.ps1"
+AD_READINESS_SCRIPT_PATH = REPO_ROOT / "collector" / "Test-TraceAdReadiness.ps1"
+AD_USER_ACCESS_SCRIPT_PATH = REPO_ROOT / "collector" / "Invoke-TraceAdUserAccessDiagnostic.ps1"
+FACTORYOPS_COMPUTER_DIAGNOSTIC_SCRIPT_PATH = REPO_ROOT / "collector" / "Invoke-TraceFactoryOpsComputerDiagnostic.ps1"
+FACTORYOPS_FILE_SHARE_DIAGNOSTIC_SCRIPT_PATH = REPO_ROOT / "collector" / "Invoke-TraceFactoryOpsFileShareAccessDiagnostic.ps1"
 COLLECTOR_TIMEOUT_SECONDS = 30
 
 SUPPORTED_SAMPLE_SCENARIOS = (

@@ -121,6 +121,45 @@ Tenant admin consent may be required before these scopes are usable.
 
 `Directory.Read.All` is broader than the baseline preflight scope set. Keep it as a fallback only if tenant policy, role design, or implementation evidence shows it is required.
 
+## Experimental Operational Graph Collector
+
+`Invoke-TraceM365AccessGraphScan.ps1` is the first standalone Phase 5A operational collector skeleton for single-user Microsoft 365 access diagnostics.
+
+This collector is experimental and intentionally isolated from the current sample-mode backend workflow.
+
+It:
+
+- is read-only
+- supports one user at a time
+- requires an existing Microsoft Graph PowerShell session
+- does not authenticate automatically
+- does not call `Connect-MgGraph`
+- does not store tokens
+- does not remediate tenant settings
+- does not scan all tenant users
+
+It requires a work/school Microsoft 365 tenant account with approved read-only delegated scopes. Personal Microsoft accounts are not sufficient for sign-in log diagnostics.
+
+Run the readiness preflight first:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\collector\Test-TraceGraphReadiness.ps1
+```
+
+If Graph connection is needed, connect manually with the verified Phase 5A baseline read-only scopes:
+
+```powershell
+Connect-MgGraph -Scopes "User.Read.All","AuditLog.Read.All","LicenseAssignment.Read.All"
+```
+
+Run the operational collector for one authorized tenant user:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\collector\Invoke-TraceM365AccessGraphScan.ps1 -UserPrincipalName user@company.com -AffectedService "Teams" -LookbackHours 24
+```
+
+The collector returns structured JSON with identity, license, sign-in, Conditional Access summary, and device summary evidence where available. Conditional Access and device evidence are currently summarized from sign-in log fields only.
+
 ## Manual Test Commands
 
 Run the main collector:
@@ -163,6 +202,12 @@ Run the Graph readiness preflight tests:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-Pester -Script .\collector\tests\Test-TraceGraphReadiness.Tests.ps1"
+```
+
+Run the operational Graph collector tests:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-Pester -Script .\collector\tests\Invoke-TraceM365AccessGraphScan.Tests.ps1"
 ```
 
 ## Future Microsoft Graph Collection

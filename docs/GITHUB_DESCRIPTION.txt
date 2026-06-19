@@ -1,0 +1,1 @@
+TRACE - local-first, read-only IT Ops diagnostics for Microsoft 365, AD, DNS, SMB, endpoints, and FactoryOps-style support scenarios.
