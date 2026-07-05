@@ -2,11 +2,11 @@
 
 > Troubleshooting Reports Across Cloud & Endpoints
 
-TRACE is the **IAM / support-diagnostics flagship** in the Rafael Alba Technical Portfolio.
+TRACE is my **IAM / support-diagnostics flagship**.
 
 It is a local-first, read-only diagnostic workbench for turning scattered support evidence from identity, endpoint, DNS, network and file-access checks into structured troubleshooting findings with confidence, limitations, safe next steps and explicit non-actions.
 
-TRACE is designed to demonstrate a support engineering workflow: collect evidence, validate inputs, classify likely causes, explain what is still unknown, and produce support-ready output without making unsafe changes to the environment.
+I use TRACE to demonstrate a support engineering workflow: collect evidence, validate inputs, classify likely causes, explain what is still unknown, and produce support-ready output without making unsafe changes to the environment.
 
 ## Flagship Area
 
@@ -14,7 +14,7 @@ TRACE is designed to demonstrate a support engineering workflow: collect evidenc
 |---|---|---|
 | IAM - Identity and Access Management | TRACE | IAM Engineer |
 
-TRACE also supports adjacent Application Support, Infrastructure / Production Operations and Security-aware Support workflows, but its main portfolio role is identity/access diagnostics and evidence-based troubleshooting.
+TRACE also supports adjacent Application Support, Infrastructure / Production Operations and Security-aware Support workflows, but I position it mainly as my identity/access diagnostics and evidence-based troubleshooting flagship.
 
 ## Problem It Solves
 
@@ -33,13 +33,13 @@ Support symptom
 
 ## Who It Is For
 
-TRACE is built for:
+I am building TRACE for:
 
-- IT Operations and support engineers
+- IT Operations and support engineering practice
 - IAM / Identity Support practice
 - Microsoft 365 / Entra ID-style access troubleshooting practice
 - application and infrastructure support scenarios where identity, DNS, endpoint or access evidence matters
-- personal portfolio evidence and future controlled B2B/contract work through Webify Digital Solutions Ltd
+- my personal portfolio evidence and future controlled B2B/contract work through Webify Digital Solutions Ltd
 
 ## Current Status
 
@@ -225,7 +225,7 @@ Its output is intended to support a ticket, handoff, escalation or safe troubles
 
 ## B2B / Contract Use
 
-TRACE can support future controlled service work through Webify Digital Solutions Ltd, especially around:
+TRACE can support future controlled service work through my Irish LTD, Webify Digital Solutions Ltd, especially around:
 
 - Microsoft 365 / identity access troubleshooting evidence
 - access issue documentation
@@ -251,7 +251,7 @@ TRACE demonstrates practical IT Operations, IAM-support and Support Engineering 
 - Public-safe sample scenarios
 - Operator-friendly findings with safe next steps and explicit limitations
 
-The project is intended to be explainable in interviews and contract conversations: it shows how a support engineer can build operational tooling that reduces guesswork without taking unsafe remediation actions.
+I use this project in my portfolio because it shows how I can build operational tooling that reduces guesswork without taking unsafe remediation actions.
 
 ## Public Release Notes
 
@@ -276,7 +276,7 @@ Future work should stay aligned with IAM, IT Operations and Support Engineering:
 
 ## Related Flagships
 
-TRACE is part of the Rafael Alba Technical Portfolio:
+TRACE is part of my technical portfolio:
 
 - IAM -> TRACE -> IAM Engineer
 - ASE -> INFIOS -> Application Support Engineer
