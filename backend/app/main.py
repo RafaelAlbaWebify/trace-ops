@@ -14,6 +14,7 @@ from .diagnostics import router as diagnostics_router
 from .homelab_scenarios import router as homelab_scenarios_router
 from .operator_runbook import router as operator_runbook_router
 from .mode_policy import router as mode_policy_router
+from .logs import router as logs_router
 
 app = FastAPI(title="TRACE Backend")
 app.include_router(scan_router)
@@ -22,6 +23,7 @@ app.include_router(diagnostics_router)
 app.include_router(homelab_scenarios_router)
 app.include_router(operator_runbook_router)
 app.include_router(mode_policy_router)
+app.include_router(logs_router)
 
 
 def get_module_metadata() -> ModuleMetadata:
