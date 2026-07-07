@@ -26,6 +26,7 @@ COLLECTOR_TIMEOUT_SECONDS = 30
 SUPPORTED_SAMPLE_SCENARIOS = (
     "account-disabled",
     "missing-license",
+    "guest-b2b-access-failure",
     "ca-details-missing",
     "ca-device-noncompliant",
     "mfa-requirement-not-satisfied",

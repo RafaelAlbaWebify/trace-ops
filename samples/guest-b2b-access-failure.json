@@ -1,0 +1,57 @@
+{
+  "scenario_id": "guest-b2b-access-failure",
+  "module": "m365-access-path-analyzer",
+  "input": {
+    "user_principal_name": "alex.guest_contoso.com#EXT#@fabrikam.example.com",
+    "affected_service": "SharePoint Online / OneDrive"
+  },
+  "identity": {
+    "user_exists": true,
+    "account_enabled": true,
+    "user_type": "Guest",
+    "display_name": "Alex Guest"
+  },
+  "licenses": {
+    "has_relevant_license": true,
+    "assigned_skus": [
+      "EXTERNAL_USER_ACCESS"
+    ]
+  },
+  "signin_logs": {
+    "available": true,
+    "recent_events": [
+      {
+        "createdDateTime": "2026-06-03T10:42:00Z",
+        "status": "failure",
+        "failureReason": "Guest or external user access was blocked by policy or external collaboration configuration.",
+        "resourceDisplayName": "SharePoint Online",
+        "clientAppUsed": "Browser",
+        "conditionalAccessStatus": "failure",
+        "deviceDetail": {
+          "deviceId": "00000000-0000-0000-0000-000000000201",
+          "displayName": "BYOD-GUEST-SAMPLE",
+          "trustType": "Azure AD registered"
+        }
+      }
+    ]
+  },
+  "conditional_access": {
+    "details_available": true,
+    "policies": [
+      {
+        "displayName": "Restrict guest access to SharePoint from unmanaged devices",
+        "result": "failure",
+        "grantControls": [
+          "mfa"
+        ]
+      }
+    ]
+  },
+  "device": {
+    "evidence_available": true,
+    "device_id": "00000000-0000-0000-0000-000000000201",
+    "display_name": "BYOD-GUEST-SAMPLE",
+    "compliance_state": "unknown",
+    "last_check_in": null
+  }
+}

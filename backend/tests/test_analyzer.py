@@ -24,6 +24,14 @@ def test_missing_license_triggers_missing_relevant_license():
     assert analysis["primary_finding"]["rule_id"] == "MISSING_RELEVANT_LICENSE"
 
 
+def test_guest_b2b_access_failure_triggers_guest_rule():
+    analysis = _analysis_for("guest-b2b-access-failure")
+
+    assert "GUEST_B2B_ACCESS_FAILURE" in _rule_ids(analysis)
+    assert analysis["primary_finding"]["rule_id"] == "GUEST_B2B_ACCESS_FAILURE"
+    assert "Do not convert the guest to a member account just to bypass an access problem." in analysis["primary_finding"]["what_not_to_change_yet"]
+
+
 def test_ca_details_missing_triggers_conditional_access_details_missing():
     analysis = _analysis_for("ca-details-missing")
 

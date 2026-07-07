@@ -89,12 +89,91 @@ def _has_mfa_failure_reason(result: CollectorResult) -> bool:
     )
 
 
+
+def _is_guest_b2b_user(result: CollectorResult) -> bool:
+    return result.identity.user_type.lower() == "guest"
+
+
+def _has_guest_or_external_failure_reason(result: CollectorResult) -> bool:
+    keywords = ("guest", "external", "b2b", "collaboration")
+    return any(
+        event.status == "failure"
+        and event.failureReason is not None
+        and any(keyword in event.failureReason.lower() for keyword in keywords)
+        for event in result.signin_logs.recent_events
+    )
+
+
+def _has_failed_guest_or_external_policy(result: CollectorResult) -> bool:
+    keywords = ("guest", "external", "b2b")
+    return any(
+        policy.result == "failure"
+        and (
+            any(keyword in policy.displayName.lower() for keyword in keywords)
+            or any(
+                keyword in control.lower()
+                for control in policy.grantControls
+                for keyword in keywords
+            )
+        )
+        for policy in result.conditional_access.policies
+    )
+
+
 def _device_compliance_is_blocking(result: CollectorResult) -> bool:
     return result.device.compliance_state in ("nonCompliant", "unknown")
 
 
 def _build_findings(result: CollectorResult) -> List[Finding]:
     findings: List[Finding] = []
+
+    if (
+        result.identity.user_exists
+        and result.identity.account_enabled
+        and _is_guest_b2b_user(result)
+        and result.signin_logs.available
+        and _has_recent_signin_failure(result)
+        and (
+            _has_guest_or_external_failure_reason(result)
+            or _has_failed_guest_or_external_policy(result)
+        )
+    ):
+        findings.append(
+            _finding(
+                rule_id="GUEST_B2B_ACCESS_FAILURE",
+                title="Guest/B2B user access failed",
+                severity="high",
+                confidence="medium",
+                likely_cause=(
+                    "The affected identity is a Guest/B2B user and recent access evidence indicates "
+                    "the external user path was blocked by policy, collaboration configuration, or resource assignment."
+                ),
+                evidence=[
+                    "identity.user_exists is true.",
+                    "identity.account_enabled is true.",
+                    "identity.user_type is Guest.",
+                    "signin_logs.available is true.",
+                    "A recent sign-in failed with a guest/external-user related failure reason or policy.",
+                    f"device.compliance_state is {result.device.compliance_state}.",
+                ],
+                next_steps=[
+                    "Confirm the guest invitation was redeemed and the external account is the expected identity.",
+                    "Check whether the guest user is assigned to the target app, site, team, or access package.",
+                    "Review external collaboration and cross-tenant access settings before changing the user.",
+                    "Review the specific Conditional Access policy result for guest or external users.",
+                ],
+                what_not_to_change_yet=[
+                    "Do not convert the guest to a member account just to bypass an access problem.",
+                    "Do not disable guest Conditional Access policies globally.",
+                    "Do not add the guest to broad groups until the resource owner confirms the access requirement.",
+                ],
+                limitations=[
+                    "Sample-mode evidence does not include invitation redemption state.",
+                    "Sample-mode evidence does not include full cross-tenant access settings.",
+                    "Sample-mode evidence does not include resource-level assignment details.",
+                ],
+            )
+        )
 
     if result.identity.user_exists and not result.identity.account_enabled:
         findings.append(
