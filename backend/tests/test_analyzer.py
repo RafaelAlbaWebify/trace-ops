@@ -24,6 +24,14 @@ def test_missing_license_triggers_missing_relevant_license():
     assert analysis["primary_finding"]["rule_id"] == "MISSING_RELEVANT_LICENSE"
 
 
+def test_service_plan_disabled_triggers_service_plan_rule():
+    analysis = _analysis_for("service-plan-disabled")
+
+    assert "SERVICE_PLAN_DISABLED_OR_NOT_PROVISIONED" in _rule_ids(analysis)
+    assert analysis["primary_finding"]["rule_id"] == "SERVICE_PLAN_DISABLED_OR_NOT_PROVISIONED"
+    assert "Do not assign extra licenses before checking the existing SKU and service-plan state." in analysis["primary_finding"]["what_not_to_change_yet"]
+
+
 def test_guest_b2b_access_failure_triggers_guest_rule():
     analysis = _analysis_for("guest-b2b-access-failure")
 

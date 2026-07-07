@@ -42,9 +42,17 @@ class IdentitySnapshot(BaseModel):
     display_name: Optional[str] = None
 
 
+class ServicePlanSnapshot(BaseModel):
+    service_plan_name: str
+    provisioning_status: str
+    applies_to: Optional[str] = None
+    sku_part_number: Optional[str] = None
+
+
 class LicenseSnapshot(BaseModel):
     has_relevant_license: bool
     assigned_skus: List[str] = Field(default_factory=list)
+    service_plans: List[ServicePlanSnapshot] = Field(default_factory=list)
 
 
 class SignInEvent(BaseModel):

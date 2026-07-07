@@ -32,6 +32,7 @@ $snapshotScripts = @(
 $knownScenarios = @(
     "account-disabled",
     "missing-license",
+    "service-plan-disabled",
     "guest-b2b-access-failure",
     "ca-details-missing",
     "ca-device-noncompliant",
