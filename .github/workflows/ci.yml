@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+
+      - name: Run backend tests
+        working-directory: backend
+        run: python -m pytest
+
+  frontend:
+    name: Frontend tests and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test -- --run
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  collector-sample-contract:
+    name: Collector sample contract
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Parse PowerShell collector scripts
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $failed = $false
+
+          Get-ChildItem -LiteralPath ".\collector" -Filter "*.ps1" -Recurse | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+
+            if ($errors -and $errors.Count -gt 0) {
+              Write-Error "PowerShell parse errors in $($_.FullName): $($errors | Out-String)"
+              $failed = $true
+            }
+          }
+
+          if ($failed) {
+            exit 1
+          }
+
+      - name: Validate sample collector scenarios
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $scenarios = @(
+            "account-disabled",
+            "missing-license",
+            "service-plan-disabled",
+            "guest-b2b-access-failure",
+            "ca-details-missing",
+            "ca-device-noncompliant",
+            "mfa-requirement-not-satisfied",
+            "no-recent-signin-evidence",
+            "successful-access-baseline"
+          )
+
+          foreach ($scenario in $scenarios) {
+            $jsonText = (& .\collector\Invoke-TraceM365AccessScan.ps1 `
+              -UserPrincipalName "sample.user@contoso.invalid" `
+              -AffectedService "Microsoft 365 general access" `
+              -Scenario $scenario `
+              -UseSampleData:$true | Out-String)
+
+            $result = $jsonText | ConvertFrom-Json -ErrorAction Stop
+
+            if ($result.scenario_id -ne $scenario) {
+              throw "Scenario $scenario returned scenario_id '$($result.scenario_id)'."
+            }
+
+            if ($result.module -ne "m365-access-path-analyzer") {
+              throw "Scenario $scenario returned unexpected module '$($result.module)'."
+            }
+
+            foreach ($property in @("input", "identity", "licenses", "signin_logs", "conditional_access", "device")) {
+              if (-not $result.PSObject.Properties.Name.Contains($property)) {
+                throw "Scenario $scenario is missing required property '$property'."
+              }
+            }
+          }
