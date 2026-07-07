@@ -120,6 +120,20 @@ def _has_failed_guest_or_external_policy(result: CollectorResult) -> bool:
     )
 
 
+
+def _problem_service_plan_names(result: CollectorResult) -> List[str]:
+    blocking_statuses = {"disabled", "pendingprovisioning", "pendingactivation", "error"}
+    return [
+        plan.service_plan_name
+        for plan in result.licenses.service_plans
+        if plan.provisioning_status.lower() in blocking_statuses
+    ]
+
+
+def _has_blocking_service_plan_status(result: CollectorResult) -> bool:
+    return bool(_problem_service_plan_names(result))
+
+
 def _device_compliance_is_blocking(result: CollectorResult) -> bool:
     return result.device.compliance_state in ("nonCompliant", "unknown")
 
@@ -230,6 +244,47 @@ def _build_findings(result: CollectorResult) -> List[Finding]:
                 ],
                 limitations=[
                     "Sample-mode evidence does not include detailed service plan provisioning status.",
+                ],
+            )
+        )
+
+    if (
+        result.identity.user_exists
+        and result.identity.account_enabled
+        and result.licenses.has_relevant_license
+        and _has_blocking_service_plan_status(result)
+    ):
+        problem_plans = _problem_service_plan_names(result)
+        findings.append(
+            _finding(
+                rule_id="SERVICE_PLAN_DISABLED_OR_NOT_PROVISIONED",
+                title="Relevant service plan is disabled or not provisioned",
+                severity="high",
+                confidence="high",
+                likely_cause=(
+                    "The user has a relevant license SKU, but one or more service plans needed for the "
+                    "affected workload are disabled, pending provisioning, or in an error state."
+                ),
+                evidence=[
+                    "identity.user_exists is true.",
+                    "identity.account_enabled is true.",
+                    "licenses.has_relevant_license is true.",
+                    f"Problem service plans: {', '.join(problem_plans)}.",
+                ],
+                next_steps=[
+                    "Review the user's assigned service plans and provisioning status for the affected workload.",
+                    "Check whether group-based licensing has disabled or failed the required service plan.",
+                    "Confirm whether the service plan should be enabled through the normal license management process.",
+                    "Retest the affected application after the service plan reaches a successful provisioning state.",
+                ],
+                what_not_to_change_yet=[
+                    "Do not change Conditional Access policies for a likely service-plan provisioning issue.",
+                    "Do not assign extra licenses before checking the existing SKU and service-plan state.",
+                    "Do not remove and re-add licenses without confirming the licensing source and approval path.",
+                ],
+                limitations=[
+                    "Sample-mode evidence does not include the group-based licensing source.",
+                    "Sample-mode evidence does not include tenant-side license assignment errors beyond service-plan status.",
                 ],
             )
         )

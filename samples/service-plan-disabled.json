@@ -1,0 +1,69 @@
+{
+  "scenario_id": "service-plan-disabled",
+  "module": "m365-access-path-analyzer",
+  "input": {
+    "user_principal_name": "sample.user@contoso.invalid",
+    "affected_service": "SharePoint Online / OneDrive"
+  },
+  "identity": {
+    "user_exists": true,
+    "account_enabled": true,
+    "user_type": "Member",
+    "display_name": "Sample Licensed User"
+  },
+  "licenses": {
+    "has_relevant_license": true,
+    "assigned_skus": [
+      "SAMPLE_E3"
+    ],
+    "service_plans": [
+      {
+        "sku_part_number": "SAMPLE_E3",
+        "service_plan_name": "SHAREPOINTENTERPRISE",
+        "provisioning_status": "Disabled",
+        "applies_to": "User"
+      },
+      {
+        "sku_part_number": "SAMPLE_E3",
+        "service_plan_name": "ONEDRIVEENTERPRISE",
+        "provisioning_status": "PendingProvisioning",
+        "applies_to": "User"
+      },
+      {
+        "sku_part_number": "SAMPLE_E3",
+        "service_plan_name": "EXCHANGE_S_ENTERPRISE",
+        "provisioning_status": "Success",
+        "applies_to": "User"
+      }
+    ]
+  },
+  "signin_logs": {
+    "available": true,
+    "recent_events": [
+      {
+        "createdDateTime": "2026-06-04T11:15:00Z",
+        "status": "failure",
+        "failureReason": "Synthetic evidence: required workload service plan is disabled or not provisioned.",
+        "resourceDisplayName": "SharePoint Online",
+        "clientAppUsed": "Browser",
+        "conditionalAccessStatus": "success",
+        "deviceDetail": {
+          "deviceId": "00000000-0000-0000-0000-000000000301",
+          "displayName": "SAMPLE-LICENSED-DEVICE",
+          "trustType": "Synthetic joined device"
+        }
+      }
+    ]
+  },
+  "conditional_access": {
+    "details_available": true,
+    "policies": []
+  },
+  "device": {
+    "evidence_available": true,
+    "device_id": "00000000-0000-0000-0000-000000000301",
+    "display_name": "SAMPLE-LICENSED-DEVICE",
+    "compliance_state": "compliant",
+    "last_check_in": "2026-06-04T10:45:00Z"
+  }
+}
