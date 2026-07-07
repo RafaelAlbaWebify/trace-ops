@@ -11,6 +11,7 @@ import { DnsLookupPage } from "./modules/dns/DnsLookupPage";
 import { AdUserAccessPage } from "./modules/identity/AdUserAccessPage";
 import { ReadinessPage } from "./modules/readiness/ReadinessPage";
 import { HistoryPage } from "./modules/history/HistoryPage";
+import { AccessEvidencePage } from "./modules/accessEvidence/AccessEvidencePage";
 
 const initialResult: StandardDiagnosticResult = {
   title: "Diagnostic result",
@@ -26,7 +27,7 @@ const initialResult: StandardDiagnosticResult = {
 };
 
 function App() {
-  const [activeId, setActiveId] = useState("share-access");
+  const [activeId, setActiveId] = useState("access-evidence");
   const [health, setHealth] = useState<BackendHealth>({ ok: false });
   const [history, setHistory] = useState<unknown[]>([]);
   const [result, setResult] = useState<StandardDiagnosticResult>(initialResult);
@@ -68,6 +69,8 @@ function App() {
         return <OverviewPage health={health} historyCount={history.length} onSelect={select} />;
       case "share-access":
         return <ShareAccessPage onResult={setResult} />;
+      case "access-evidence":
+        return <AccessEvidencePage onResult={setResult} />;
       case "dns-lookup":
         return <DnsLookupPage onResult={setResult} />;
       case "ad-user-access":
@@ -83,7 +86,7 @@ function App() {
       case "history":
         return <HistoryPage history={history} />;
       default:
-        return <ShareAccessPage onResult={setResult} />;
+        return <AccessEvidencePage onResult={setResult} />;
     }
   }
 
