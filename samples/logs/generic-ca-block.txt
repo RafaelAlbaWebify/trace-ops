@@ -1,0 +1,1 @@
+2026-07-07T09:22:11Z user=sample.user@contoso.invalid app="SharePoint Online" result=failure reason="blocked by ca policy" mfa=satisfied device=compliant
