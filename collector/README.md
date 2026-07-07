@@ -55,6 +55,7 @@ Each snapshot script returns structured JSON for its evidence area, controlled e
 
 - `account-disabled`
 - `missing-license`
+- `guest-b2b-access-failure`
 - `ca-details-missing`
 - `ca-device-noncompliant`
 - `mfa-requirement-not-satisfied`

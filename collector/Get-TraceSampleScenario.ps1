@@ -37,6 +37,7 @@ function Get-TraceSampleScenario {
     $sampleMap = [ordered]@{
         "account-disabled" = "account-disabled.json"
         "missing-license" = "missing-license.json"
+        "guest-b2b-access-failure" = "guest-b2b-access-failure.json"
         "ca-details-missing" = "ca-details-missing.json"
         "ca-device-noncompliant" = "ca-device-noncompliant.json"
         "mfa-requirement-not-satisfied" = "mfa-requirement-not-satisfied.json"
