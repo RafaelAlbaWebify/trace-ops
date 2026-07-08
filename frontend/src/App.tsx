@@ -32,17 +32,27 @@ function App() {
   const [history, setHistory] = useState<unknown[]>([]);
   const [result, setResult] = useState<StandardDiagnosticResult>(initialResult);
 
+  function refreshHistory() {
+    void getHistory().then(setHistory);
+  }
+
   useEffect(() => {
     void getBackendHealth().then((value) => setHealth({ ok: value.ok, endpoint: value.endpoint }));
-    void getHistory().then(setHistory);
+    refreshHistory();
   }, []);
 
   const activeModule = useMemo(() => findModule(activeId), [activeId]);
+
+  function handleResult(nextResult: StandardDiagnosticResult) {
+    setResult(nextResult);
+    refreshHistory();
+  }
 
   function select(id: string) {
     setActiveId(id);
     const module = findModule(id);
     if (id === "history") {
+      refreshHistory();
       setResult({
         title: "Diagnostic run history",
         status: "ok",
@@ -68,25 +78,25 @@ function App() {
       case "overview":
         return <OverviewPage health={health} historyCount={history.length} onSelect={select} />;
       case "share-access":
-        return <ShareAccessPage onResult={setResult} />;
+        return <ShareAccessPage onResult={handleResult} />;
       case "access-evidence":
-        return <AccessEvidencePage onResult={setResult} />;
+        return <AccessEvidencePage onResult={handleResult} />;
       case "dns-lookup":
-        return <DnsLookupPage onResult={setResult} />;
+        return <DnsLookupPage onResult={handleResult} />;
       case "ad-user-access":
-        return <AdUserAccessPage type="access" onResult={setResult} />;
+        return <AdUserAccessPage type="access" onResult={handleResult} />;
       case "ad-readiness":
-        return <AdUserAccessPage type="readiness" onResult={setResult} />;
+        return <AdUserAccessPage type="readiness" onResult={handleResult} />;
       case "local-readiness":
-        return <ReadinessPage title="Local readiness" group="Endpoint" onResult={setResult} />;
+        return <ReadinessPage title="Local readiness" group="Endpoint" onResult={handleResult} />;
       case "cloud-readiness":
-        return <ReadinessPage title="Cloud readiness" group="Cloud / M365" onResult={setResult} />;
+        return <ReadinessPage title="Cloud readiness" group="Cloud / M365" onResult={handleResult} />;
       case "m365-sample":
-        return <ReadinessPage title="M365 sample" group="Cloud / M365" onResult={setResult} />;
+        return <ReadinessPage title="M365 sample" group="Cloud / M365" onResult={handleResult} />;
       case "history":
         return <HistoryPage history={history} />;
       default:
-        return <AccessEvidencePage onResult={setResult} />;
+        return <AccessEvidencePage onResult={handleResult} />;
     }
   }
 

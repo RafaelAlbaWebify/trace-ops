@@ -47,7 +47,7 @@ declare global {
 
 const fallbackEndpoints: EndpointMap = {
   health: ["/api/health", "/health", "/api/status"],
-  history: ["/api/history", "/api/scans", "/api/reports/history", "/api/diagnostics/history"],
+  history: ["/api/logs/history", "/api/history", "/api/scans", "/api/reports/history", "/api/diagnostics/history"],
   shareAccess: [
     "/api/factoryops/file-share-access/diagnose",
     "/api/factoryops/file-share-access-diagnostic",

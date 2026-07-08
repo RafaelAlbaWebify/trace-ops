@@ -21,6 +21,8 @@ build/
 /backend/data/
 /reports/*
 !/reports/.gitkeep
+.trace-runs/
+backend/.trace-runs/
 
 # OS / editor
 .DS_Store
