@@ -47,3 +47,13 @@ def test_missing_log_run_returns_404(monkeypatch, tmp_path):
     response = client.get("/api/logs/history/not-found")
 
     assert response.status_code == 404
+
+
+def test_invalid_run_id_is_rejected_without_filesystem_lookup(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRACE_ACCESS_RUN_STORE", str(tmp_path))
+
+    detail = client.get("/api/logs/history/not-a-valid-run-id")
+    report = client.get("/api/logs/reports/not-a-valid-run-id.md")
+
+    assert detail.status_code == 404
+    assert report.status_code == 404
