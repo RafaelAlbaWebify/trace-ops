@@ -2,9 +2,9 @@
 
 > Troubleshooting Reports Across Cloud & Endpoints
 
-TRACE is my **IAM / support-diagnostics flagship**.
+TRACE is my **IAM / access evidence analysis flagship**.
 
-It is a local-first, read-only diagnostic workbench for turning scattered support evidence from identity, endpoint, DNS, network and file-access checks into structured troubleshooting findings with confidence, limitations, safe next steps and explicit non-actions.
+It is a local-first, read-only workbench for turning redacted access evidence from identity, endpoint, DNS, network, application, file/share and Microsoft 365-style sources into structured troubleshooting findings with confidence, limitations, safe next steps and explicit non-actions.
 
 I use TRACE to demonstrate a support engineering workflow: collect evidence, validate inputs, classify likely causes, explain what is still unknown, and produce support-ready output without making unsafe changes to the environment.
 
@@ -16,19 +16,38 @@ I use TRACE to demonstrate a support engineering workflow: collect evidence, val
 
 TRACE also supports adjacent Application Support, Infrastructure / Production Operations and Security-aware Support workflows, but I position it mainly as my identity/access diagnostics and evidence-based troubleshooting flagship.
 
-## Problem It Solves
+## Current Status
 
-In IT support, the real troubleshooting often starts late because the evidence is spread across user reports, admin portals, device state, DNS checks, group memberships, file/share permissions, previous tickets and assumptions.
+Current status: **v0.9 professional polish / v1.0 release-candidate path**.
 
-TRACE turns that scattered evidence into a clearer diagnostic path:
+Completed foundations:
+
+- Modular React and TypeScript operator shell
+- FastAPI backend endpoints for diagnostic workflows
+- PowerShell read-only collectors
+- Deterministic analyzer rules
+- Public-safe sample evidence
+- IAM Scenario Pack v2
+- Access Evidence Analyzer backend core
+- Entra sign-in CSV export analysis
+- Resource assignment / authorization evidence analysis
+- Operator UI for access evidence intake
+- Local JSON and Markdown run history for access evidence analysis
+- GitHub Actions CI for backend, frontend and collector contract checks
+
+## Product Positioning
+
+TRACE is not a SIEM, SOC platform, EDR, vulnerability scanner, tenant automation system or remediation tool.
+
+TRACE is a focused IAM/access troubleshooting workbench:
 
 ```text
-Support symptom
-  -> Evidence collection or public-safe sample evidence
-  -> Structured validation
-  -> Deterministic diagnostic rule
-  -> Finding, confidence, limitations, safe next steps and non-actions
-  -> Ticket-ready report or escalation handoff
+redacted evidence
+  -> parser or structured input
+  -> normalized access events
+  -> deterministic access-pattern rules
+  -> finding, confidence, evidence used, evidence missing
+  -> safe next checks, explicit non-actions, support-ready report
 ```
 
 ## Who It Is For
@@ -41,126 +60,52 @@ I am building TRACE for:
 - application and infrastructure support scenarios where identity, DNS, endpoint or access evidence matters
 - my personal portfolio evidence and future controlled B2B/contract work through Webify Digital Solutions Ltd
 
-## Current Status
+## Current Access Evidence Analyzer
 
-Current status: **public sample-mode MVP**.
+The practical daily-job workflow is now the **Access Evidence** workspace.
 
-TRACE public v1 includes:
-
-- Modular React and TypeScript operator shell
-- FastAPI backend endpoints for diagnostic workflows
-- PowerShell read-only collectors
-- Deterministic analyzer rules
-- Local JSON and HTML-style report generation paths
-- Public-safe sample evidence
-- Diagnostic history and report retrieval
-- Backend and frontend tests
-- Documentation for read-only boundaries and portfolio positioning
-
-Validated baseline before public v1 publication:
-
-- Frontend production build: passed
-- Frontend tests: passed, 5/5
-- Backend pytest: passed, 106/106
-- Responsive shell accepted across desktop, laptop, tablet-width and narrow layouts
-
-## Core Workflow
+Supported evidence paths through `POST /api/logs/analyze`:
 
 ```text
-Operator input
-  -> Backend API
-  -> Read-only collector or sample evidence
-  -> Structured JSON
-  -> Backend validation
-  -> Deterministic diagnostic rule
-  -> Finding, evidence, limitations, safe next steps, non-actions
-  -> Local JSON / HTML-style report
+generic_access_log_text
+entra_signin_csv
+resource_assignment_json
 ```
 
-## Current Diagnostic Workflows
+The analyzer can currently identify and structure evidence for:
 
-Current public v1 workflows cover:
+- Conditional Access-style blocking evidence
+- MFA challenge or failure evidence
+- disabled-account attempt evidence
+- authentication success followed by resource access denial
+- exported Entra sign-in CSV evidence
+- legacy client values in sign-in evidence
+- resource assignment or group membership missing/unconfirmed evidence
+- missing or unsupported evidence
 
-- Microsoft 365 access-path sample diagnostics
-- Local readiness checks
-- AD user access readiness checks
-- DNS diagnostic evidence
-- FactoryOps-style computer readiness checks
-- FactoryOps-style file-share access diagnostics
-- Diagnostic history and report retrieval
+Each run returns:
 
-The strongest public-safe scenario today is a file-share access investigation: a user cannot access a department share, but DNS and SMB are healthy. TRACE correlates AD user state, required group membership, observed access denial and safe next steps without modifying anything.
+- `run_id`
+- normalized events
+- detected patterns
+- primary finding
+- confidence
+- evidence used
+- evidence missing
+- safe next steps
+- what not to change yet
+- limitations
+- Markdown report
 
-## Example Scenario
-
-**Ticket:** User cannot access a department file share.
-
-TRACE helps structure the investigation:
-
-1. Confirm the symptom and affected user.
-2. Check whether DNS and SMB/service reachability appear healthy.
-3. Review public-safe user/access evidence.
-4. Compare required access group vs observed membership.
-5. Produce a finding with confidence and limitations.
-6. Recommend safe next steps through the normal approval path.
-7. Explicitly state what should not be changed yet.
-
-Example finding:
-
-```json
-{
-  "status": "finding",
-  "finding_id": "FACTORYOPS_FILE_SHARE_USER_MISSING_REQUIRED_GROUP",
-  "severity": "high",
-  "confidence": "high",
-  "likely_cause": "The user is not present in the required AD group used to authorize read access to the file share.",
-  "safe_next_steps": [
-    "Confirm the user should have access with the data owner, then request membership in the required group through the normal approval path.",
-    "After membership is changed by an authorized admin, have the user sign out/in or purge tickets before retesting."
-  ],
-  "what_not_to_change_yet": [
-    "Do not broaden Everyone, Domain Users, or Authenticated Users permissions to fix a single access issue.",
-    "Do not change firewall, DNS, NTFS, share, or AD permissions from this diagnostic alone."
-  ]
-}
-```
-
-## Architecture
-
-```text
-trace-ops/
-|-- backend/     Python FastAPI API, validation, analyzer rules, local report paths
-|-- collector/   PowerShell read-only collectors and collector tests
-|-- frontend/    React, TypeScript, Vite, modular TRACE operator shell
-|-- samples/     Public-safe sample evidence
-`-- docs/        Release notes, read-only boundaries, portfolio documentation
-```
-
-### Frontend Structure
-
-```text
-frontend/src/App.tsx
-frontend/src/api/traceApi.ts
-frontend/src/api/generatedEndpoints.ts
-frontend/src/ui/AppShell.tsx
-frontend/src/ui/TopBar.tsx
-frontend/src/ui/SidebarNav.tsx
-frontend/src/ui/ResultPanel.tsx
-frontend/src/modules/registry.ts
-frontend/src/modules/overview/OverviewPage.tsx
-frontend/src/modules/shareAccess/ShareAccessPage.tsx
-frontend/src/modules/dns/DnsLookupPage.tsx
-frontend/src/modules/identity/AdUserAccessPage.tsx
-frontend/src/modules/readiness/ReadinessPage.tsx
-frontend/src/modules/history/HistoryPage.tsx
-frontend/src/styles/trace-shell.css
-```
-
-### Backend Endpoints
+## Backend Endpoints
 
 ```text
 GET  /api/health
 GET  /api/modules
+POST /api/logs/analyze
+GET  /api/logs/history
+GET  /api/logs/history/{run_id}
+GET  /api/logs/reports/{run_id}.md
 POST /api/scan/user-access
 POST /api/diagnostics/dns
 POST /api/diagnostics/ad-user-access
@@ -171,6 +116,40 @@ GET  /api/history/{history_id}/report.json
 GET  /api/history/{history_id}/report.html
 ```
 
+## Architecture
+
+```text
+trace-ops/
+|-- backend/     Python FastAPI API, validation, analyzer rules, local report paths
+|-- collector/   PowerShell read-only collectors and collector tests
+|-- frontend/    React, TypeScript, Vite, modular TRACE operator shell
+|-- samples/     Public-safe sample evidence
+`-- docs/        Release notes, roadmaps, boundaries and portfolio documentation
+```
+
+### Key Backend Files
+
+```text
+backend/app/logs.py
+backend/app/log_models.py
+backend/app/log_parser.py
+backend/app/log_analyzer.py
+backend/app/entra_signin_analyzer.py
+backend/app/resource_assignment_analyzer.py
+backend/app/access_run_store.py
+```
+
+### Key Frontend Files
+
+```text
+frontend/src/App.tsx
+frontend/src/api/traceApi.ts
+frontend/src/modules/accessEvidence/AccessEvidencePage.tsx
+frontend/src/modules/registry.ts
+frontend/src/ui/ResultPanel.tsx
+frontend/src/styles/trace-shell.css
+```
+
 ## Tech Stack
 
 - Python
@@ -179,7 +158,7 @@ GET  /api/history/{history_id}/report.html
 - React
 - TypeScript
 - Vite
-- JSON / HTML-style local reports
+- JSON / Markdown / HTML-style local reports
 - Public-safe sample data
 
 ## Run Locally
@@ -187,14 +166,14 @@ GET  /api/history/{history_id}/report.html
 Backend:
 
 ```powershell
-cd .\backend
+Set-Location -LiteralPath "C:\Users\ralba\Documents\GitHub\trace-ops\backend"
 ..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Frontend:
 
 ```powershell
-cd .\frontend
+Set-Location -LiteralPath "C:\Users\ralba\Documents\GitHub\trace-ops\frontend"
 npm install
 npm run dev
 ```
@@ -206,81 +185,41 @@ Backend:  http://127.0.0.1:8000
 Frontend: http://127.0.0.1:5173
 ```
 
+## Validate Locally
+
+```powershell
+Set-Location -LiteralPath "C:\Users\ralba\Documents\GitHub\trace-ops\backend"
+python -m pytest
+
+Set-Location -LiteralPath "C:\Users\ralba\Documents\GitHub\trace-ops\frontend"
+npm test
+npm run build
+```
+
 ## Safety and Boundaries
 
 TRACE deliberately does not:
 
 - Change AD users, groups, passwords or memberships
+- Change Entra ID users, groups, licenses, devices or policies
 - Change DNS records
 - Change firewall rules
 - Change NTFS or SMB share permissions
 - Restart services or run remote remediation
 - Store credentials or tokens
 - Impersonate end users
+- Upload logs to external services
 - Perform offensive security testing
+- Claim confirmed root cause when evidence is incomplete
 
-TRACE is not a cybersecurity scanner, penetration-testing tool, monitoring platform or automatic remediation tool.
+TRACE should be used to structure evidence, support ticket notes, safe next checks and escalation handoffs. It does not replace Microsoft Entra admin tools, Microsoft Sentinel, Splunk, Elastic, Defender, a SOC platform or a production IAM governance system.
 
-Its output is intended to support a ticket, handoff, escalation or safe troubleshooting decision.
-
-## B2B / Contract Use
-
-TRACE can support future controlled service work through my Irish LTD, Webify Digital Solutions Ltd, especially around:
-
-- Microsoft 365 / identity access troubleshooting evidence
-- access issue documentation
-- endpoint/readiness evidence
-- DNS and dependency evidence for support cases
-- escalation-quality reports and handovers
-- small-business identity/access health-check style reviews
-
-This repository is currently a public-safe portfolio MVP. It does not connect to real client tenants or process real customer data.
-
-## Portfolio Value
-
-TRACE demonstrates practical IT Operations, IAM-support and Support Engineering skills:
-
-- Evidence-based troubleshooting
-- Identity and access diagnostic thinking
-- Read-only diagnostic design
-- PowerShell collector design
-- FastAPI backend contracts
-- React and TypeScript frontend structure
-- Structured JSON evidence
-- Deterministic diagnostic rules
-- Public-safe sample scenarios
-- Operator-friendly findings with safe next steps and explicit limitations
-
-I use this project in my portfolio because it shows how I can build operational tooling that reduces guesswork without taking unsafe remediation actions.
-
-## Public Release Notes
-
-See:
+## Roadmap Docs
 
 ```text
-docs/github_release_notes_v1_draft.md
-docs/public_release_checklist.md
-docs/read_only_boundary.md
+docs/log-analysis-roadmap.md
+docs/finished-roadmap.md
+docs/iam-scenario-pack-v2.md
 ```
 
-## Roadmap
-
-Future work should stay aligned with IAM, IT Operations and Support Engineering:
-
-1. Add a short public demo video.
-2. Add more public-safe IAM and access-diagnostic examples.
-3. Improve documentation for interview and contract walkthroughs.
-4. Add screenshots and workflow visuals to the repository.
-5. Add carefully scoped read-only Microsoft Graph integration only when safe.
-6. Keep remediation outside TRACE unless a future design explicitly changes that boundary.
-
-## Related Flagships
-
-TRACE is part of my technical portfolio:
-
-- IAM -> TRACE -> IAM Engineer
-- ASE -> INFIOS -> Application Support Engineer
-- SOC -> CustosOps -> SOC Analyst
-- AUTO -> WATCH -> IT Automation Engineer
-- IPPO -> OPSCORE -> Infrastructure / Production Operations Engineer
-- AIDE -> YTIS -> AI Developer / GenAI Application Developer
+The v1.0 target is a stable professional portfolio release for local IAM/access evidence analysis, not an endless expansion into a SIEM or live tenant automation platform.

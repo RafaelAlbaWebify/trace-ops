@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc --noEmit",
     "build": "tsc && vite build",
-    "test": "node -e \"console.log('frontend test placeholder: build validates TypeScript and Vite')\""
+    "test": "npm run typecheck"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.0",
