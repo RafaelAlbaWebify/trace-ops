@@ -22,6 +22,13 @@ export const modules: ModuleDefinition[] = [
     description: "Diagnoses DNS, SMB reachability, AD user state, required group membership, and observed access denial."
   },
   {
+    id: "access-evidence",
+    group: "Identity",
+    label: "Access evidence",
+    maturity: "Evidence",
+    description: "Analyzes redacted access evidence from logs, Entra sign-in exports, or resource assignment notes."
+  },
+  {
     id: "ad-user-access",
     group: "Identity",
     label: "AD user access",
@@ -74,7 +81,7 @@ export const modules: ModuleDefinition[] = [
 
 export const moduleGroups = ["FactoryOps", "Identity", "Network", "Endpoint", "Cloud / M365", "Evidence"].map((group) => ({
   name: group,
-  defaultOpen: group === "FactoryOps",
+  defaultOpen: group === "FactoryOps" || group === "Identity",
   modules: modules.filter((module) => module.group === group)
 }));
 

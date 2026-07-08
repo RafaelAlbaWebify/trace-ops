@@ -29,6 +29,14 @@ export type ShareAccessInput = {
   observedAccessDenied: boolean;
 };
 
+export type AccessEvidenceInput = {
+  sourceType: "generic_access_log_text" | "entra_signin_csv" | "resource_assignment_json";
+  affectedUser?: string;
+  affectedService?: string;
+  content: string;
+  notes?: string;
+};
+
 type EndpointMap = Record<string, string[]>;
 
 declare global {
@@ -52,6 +60,7 @@ const fallbackEndpoints: EndpointMap = {
     "/api/file-share-access",
     "/factoryops/file-share-access/diagnose"
   ],
+  accessEvidence: ["/api/logs/analyze"],
   dns: ["/api/diagnostics/dns", "/api/dns-diagnostic", "/api/dns/lookup", "/api/dns"],
   adUser: ["/api/diagnostics/ad-user-access", "/api/ad-user-access", "/api/diagnostics/ad-user"],
   readiness: ["/api/readiness", "/api/local-infra-readiness", "/api/diagnostics/readiness"]
@@ -132,9 +141,10 @@ function pick(obj: Record<string, unknown>, names: string[]): unknown {
 
 export function normalizeResult(title: string, raw: unknown): StandardDiagnosticResult {
   const obj = (raw && typeof raw === "object" ? raw as Record<string, unknown> : {}) as Record<string, unknown>;
+  const primary = obj.primary_finding && typeof obj.primary_finding === "object" ? obj.primary_finding as Record<string, unknown> : {};
   const status = String(pick(obj, ["status", "result_status", "overall_status"]) ?? "ok");
-  const findingId = pick(obj, ["finding_id", "findingId", "finding", "finding_code"]);
-  const summary = pick(obj, ["summary", "message", "conclusion", "diagnosis"]);
+  const findingId = pick(obj, ["finding_id", "findingId", "finding", "finding_code"]) ?? pick(primary, ["finding_id", "rule_id"]);
+  const summary = pick(obj, ["summary", "message", "conclusion", "diagnosis"]) ?? pick(primary, ["likely_cause", "summary"]);
   const readOnlyRaw = pick(obj, ["read_only_boundary", "readOnlyKept", "read_only_kept", "read_only"]);
   const readOnlyKept = typeof readOnlyRaw === "boolean"
     ? readOnlyRaw
@@ -144,16 +154,16 @@ export function normalizeResult(title: string, raw: unknown): StandardDiagnostic
     title,
     status,
     findingId: findingId ? String(findingId) : null,
-    severity: pick(obj, ["severity"]) ? String(pick(obj, ["severity"])) : null,
-    confidence: pick(obj, ["confidence"]) ? String(pick(obj, ["confidence"])) : null,
+    severity: pick(obj, ["severity"]) ? String(pick(obj, ["severity"])) : pick(primary, ["severity"]) ? String(pick(primary, ["severity"])) : null,
+    confidence: pick(obj, ["confidence"]) ? String(pick(obj, ["confidence"])) : pick(primary, ["confidence"]) ? String(pick(primary, ["confidence"])) : null,
     summary: summary ? String(summary) : null,
-    evidenceUsed: asStringArray(pick(obj, ["evidence_used", "evidenceUsed", "evidence"])),
-    evidenceMissing: asStringArray(pick(obj, ["evidence_missing", "evidenceMissing", "missing_evidence"])),
-    safeNextSteps: asStringArray(pick(obj, ["safe_next_steps", "safeNextSteps", "next_steps"])),
-    doNotChangeYet: asStringArray(pick(obj, ["do_not_change_yet", "doNotChangeYet", "do_not_change"])),
-    limitations: asStringArray(pick(obj, ["limitations", "limits"])),
+    evidenceUsed: asStringArray(pick(obj, ["evidence_used", "evidenceUsed", "evidence"]) ?? pick(primary, ["evidence_used", "evidence"])),
+    evidenceMissing: asStringArray(pick(obj, ["evidence_missing", "evidenceMissing", "missing_evidence"]) ?? pick(primary, ["evidence_missing"])),
+    safeNextSteps: asStringArray(pick(obj, ["safe_next_steps", "safeNextSteps", "next_steps"]) ?? pick(primary, ["safe_next_steps", "next_steps"])),
+    doNotChangeYet: asStringArray(pick(obj, ["what_not_to_change_yet", "do_not_change_yet", "doNotChangeYet", "do_not_change"]) ?? pick(primary, ["what_not_to_change_yet"])),
+    limitations: asStringArray(pick(obj, ["limitations", "limits"]) ?? pick(primary, ["limitations"])),
     readOnlyKept,
-    ticketSummary: pick(obj, ["ticket_summary", "ticketSummary"]) ? String(pick(obj, ["ticket_summary", "ticketSummary"])) : null,
+    ticketSummary: pick(obj, ["ticket_summary", "ticketSummary", "report_markdown"]) ? String(pick(obj, ["ticket_summary", "ticketSummary", "report_markdown"])) : null,
     raw
   };
 }
@@ -179,6 +189,38 @@ export async function getHistory(): Promise<unknown[]> {
     return [];
   } catch {
     return [];
+  }
+}
+
+export async function runAccessEvidenceAnalysis(input: AccessEvidenceInput): Promise<StandardDiagnosticResult> {
+  const payload = {
+    source_type: input.sourceType,
+    affected_user: input.affectedUser || undefined,
+    affected_service: input.affectedService || undefined,
+    content: input.content,
+    notes: input.notes || undefined
+  };
+
+  try {
+    const { data } = await tryEndpoints("accessEvidence", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    return normalizeResult("Access evidence analyzer", data);
+  } catch (error) {
+    return {
+      title: "Access evidence analyzer",
+      status: "error",
+      findingId: "TRACE_UI_ACCESS_EVIDENCE_ENDPOINT_NOT_REACHED",
+      summary: "The UI could not reach the access evidence analyzer endpoint. Backend may not be running, or the API route may have changed.",
+      evidenceUsed: ["The UI tried the configured access evidence endpoint."],
+      evidenceMissing: ["A successful backend response was not received."],
+      safeNextSteps: ["Confirm the backend is running on port 8000.", "Confirm /api/logs/analyze is available."],
+      doNotChangeYet: ["Do not make access changes based only on this UI connection error."],
+      limitations: [error instanceof Error ? error.message : String(error)],
+      readOnlyKept: true,
+      raw: { error: error instanceof Error ? error.message : String(error), payload, generatedEndpoints }
+    };
   }
 }
 
