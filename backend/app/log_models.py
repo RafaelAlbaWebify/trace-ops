@@ -55,3 +55,4 @@ class LogAnalysisResponse(BaseModel):
     what_not_to_change_yet: List[str] = Field(default_factory=list)
     limitations: List[str] = Field(default_factory=list)
     report_markdown: str
+    run_id: Optional[str] = None
