@@ -5,7 +5,7 @@ type AccessEvidencePageProps = {
   onResult: (result: StandardDiagnosticResult) => void;
 };
 
-type EvidenceMode = AccessEvidenceInput["sourceType"] | "entra_signin_guided_form";
+type EvidenceMode = AccessEvidenceInput["sourceType"] | "entra_signin_guided_form" | "license_service_plan_guided_form";
 type TernaryEvidence = "true" | "false" | "unknown";
 type OutcomeEvidence = "success" | "failure" | "unknown";
 type ConditionalAccessEvidence = "success" | "failure" | "notApplied" | "unknown";
@@ -35,6 +35,19 @@ type EntraGuidedForm = {
   statusErrorCode: string;
   failureReason: string;
   deviceCompliance: string;
+};
+
+type LicenseServicePlanGuide = {
+  timestamp: string;
+  application: string;
+  resource: string;
+  sku: string;
+  servicePlan: string;
+  licenseAssigned: TernaryEvidence;
+  servicePlanEnabled: TernaryEvidence;
+  licensingSource: string;
+  recentChange: TernaryEvidence;
+  failureReason: string;
 };
 
 const defaultResourceGuide: ResourceAssignmentGuide = {
@@ -67,6 +80,19 @@ const defaultEntraGuide: EntraGuidedForm = {
   statusErrorCode: "53003",
   failureReason: "Access has been blocked by Conditional Access policies.",
   deviceCompliance: "false"
+};
+
+const defaultLicenseGuide: LicenseServicePlanGuide = {
+  timestamp: "2026-07-07T10:10:00Z",
+  application: "Exchange Online",
+  resource: "User mailbox",
+  sku: "Microsoft 365 E3",
+  servicePlan: "EXCHANGE_S_ENTERPRISE",
+  licenseAssigned: "false",
+  servicePlanEnabled: "false",
+  licensingSource: "group-based licensing",
+  recentChange: "unknown",
+  failureReason: "User is not licensed for Exchange Online or the required service plan is disabled."
 };
 
 function ternaryToBoolean(value: TernaryEvidence): boolean | undefined {
@@ -142,6 +168,17 @@ function buildEntraGuidedCsv(form: AccessEvidenceInput, guide: EntraGuidedForm):
   return buildCsv(headers, values);
 }
 
+function buildLicenseServicePlanEvidence(form: AccessEvidenceInput, guide: LicenseServicePlanGuide): string {
+  const user = form.affectedUser || "sample.user@contoso.invalid";
+  const resource = guide.resource || form.affectedService || guide.application;
+  const licenseState = guide.licenseAssigned === "true" ? "license assigned" : guide.licenseAssigned === "false" ? "not licensed" : "license unknown";
+  const servicePlanState = guide.servicePlanEnabled === "true" ? "service plan enabled" : guide.servicePlanEnabled === "false" ? "service plan disabled" : "service plan unknown";
+  return [
+    `${guide.timestamp} user=${user} app="Microsoft 365" result=success reason="authentication succeeded before license check"`,
+    `${guide.timestamp} user=${user} app="${guide.application}" resource="${resource}" result=failure reason="${guide.failureReason} ${licenseState}; ${servicePlanState}" sku="${guide.sku}" service_plan="${guide.servicePlan}" licensing_source="${guide.licensingSource}" recent_license_change="${guide.recentChange}"`
+  ].join("\n");
+}
+
 const examples: Record<AccessEvidenceInput["sourceType"], string> = {
   generic_access_log_text: '2026-07-07T09:22:11Z user=sample.user@contoso.invalid app="SharePoint Online" result=failure reason="blocked by ca policy"',
   entra_signin_csv: `createdDateTime,userPrincipalName,appDisplayName,resourceDisplayName,clientAppUsed,conditionalAccessStatus,authenticationRequirement,status.errorCode,status.failureReason
@@ -150,7 +187,9 @@ const examples: Record<AccessEvidenceInput["sourceType"], string> = {
 };
 
 function sourceTypeForMode(mode: EvidenceMode): AccessEvidenceInput["sourceType"] {
-  return mode === "entra_signin_guided_form" ? "entra_signin_csv" : mode;
+  if (mode === "entra_signin_guided_form") return "entra_signin_csv";
+  if (mode === "license_service_plan_guided_form") return "generic_access_log_text";
+  return mode;
 }
 
 function modeLabel(mode: EvidenceMode): string {
@@ -158,6 +197,7 @@ function modeLabel(mode: EvidenceMode): string {
     generic_access_log_text: "Generic access log text",
     entra_signin_csv: "Entra sign-in CSV",
     entra_signin_guided_form: "Conditional Access / MFA guided form",
+    license_service_plan_guided_form: "License / Service Plan guided form",
     resource_assignment_json: "Resource assignment guided form"
   };
   return labels[mode];
@@ -183,6 +223,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
   const [mode, setMode] = useState<EvidenceMode>("generic_access_log_text");
   const [resourceGuide, setResourceGuide] = useState<ResourceAssignmentGuide>(defaultResourceGuide);
   const [entraGuide, setEntraGuide] = useState<EntraGuidedForm>(defaultEntraGuide);
+  const [licenseGuide, setLicenseGuide] = useState<LicenseServicePlanGuide>(defaultLicenseGuide);
   const [form, setForm] = useState<AccessEvidenceInput>({
     sourceType: "generic_access_log_text",
     affectedUser: "sample.user@contoso.invalid",
@@ -194,9 +235,11 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
 
   const generatedResourceJson = buildResourceAssignmentJson(form, resourceGuide);
   const generatedEntraCsv = buildEntraGuidedCsv(form, entraGuide);
+  const generatedLicenseEvidence = buildLicenseServicePlanEvidence(form, licenseGuide);
   const isResourceGuidedMode = mode === "resource_assignment_json";
   const isEntraGuidedMode = mode === "entra_signin_guided_form";
-  const submittedEvidence = isResourceGuidedMode ? generatedResourceJson : isEntraGuidedMode ? generatedEntraCsv : form.content;
+  const isLicenseGuidedMode = mode === "license_service_plan_guided_form";
+  const submittedEvidence = isResourceGuidedMode ? generatedResourceJson : isEntraGuidedMode ? generatedEntraCsv : isLicenseGuidedMode ? generatedLicenseEvidence : form.content;
 
   function update<K extends keyof AccessEvidenceInput>(key: K, value: AccessEvidenceInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -210,6 +253,10 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
     setEntraGuide((current) => ({ ...current, [key]: value }));
   }
 
+  function updateLicenseGuide<K extends keyof LicenseServicePlanGuide>(key: K, value: LicenseServicePlanGuide[K]) {
+    setLicenseGuide((current) => ({ ...current, [key]: value }));
+  }
+
   function useExample(nextMode: EvidenceMode) {
     setMode(nextMode);
     setForm((current) => {
@@ -221,8 +268,10 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
           ? buildResourceAssignmentJson(current, resourceGuide)
           : nextMode === "entra_signin_guided_form"
             ? buildEntraGuidedCsv(current, entraGuide)
-            : examples[nextSourceType],
-        affectedService: nextMode === "resource_assignment_json" ? "Engineering SharePoint Site" : current.affectedService
+            : nextMode === "license_service_plan_guided_form"
+              ? buildLicenseServicePlanEvidence(current, licenseGuide)
+              : examples[nextSourceType],
+        affectedService: nextMode === "resource_assignment_json" ? "Engineering SharePoint Site" : nextMode === "license_service_plan_guided_form" ? licenseGuide.application : current.affectedService
       };
     });
     onResult(emptyAccessResult(nextMode));
@@ -277,6 +326,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                 <option value="generic_access_log_text">Generic access log text</option>
                 <option value="entra_signin_csv">Entra sign-in CSV</option>
                 <option value="entra_signin_guided_form">Conditional Access / MFA guided form</option>
+                <option value="license_service_plan_guided_form">License / Service Plan guided form</option>
                 <option value="resource_assignment_json">Resource assignment guided form</option>
               </select>
             </label>
@@ -306,18 +356,9 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <li><strong>Client/device:</strong> Keep client app and device compliance because they often explain policy decisions.</li>
                 </ul>
               </div>
-              <label>
-                <span>Timestamp / time window</span>
-                <input value={entraGuide.timestamp} onChange={(event) => updateEntraGuide("timestamp", event.target.value)} />
-              </label>
-              <label>
-                <span>Application</span>
-                <input value={entraGuide.application} onChange={(event) => updateEntraGuide("application", event.target.value)} />
-              </label>
-              <label>
-                <span>Resource</span>
-                <input value={entraGuide.resource} onChange={(event) => updateEntraGuide("resource", event.target.value)} />
-              </label>
+              <label><span>Timestamp / time window</span><input value={entraGuide.timestamp} onChange={(event) => updateEntraGuide("timestamp", event.target.value)} /></label>
+              <label><span>Application</span><input value={entraGuide.application} onChange={(event) => updateEntraGuide("application", event.target.value)} /></label>
+              <label><span>Resource</span><input value={entraGuide.resource} onChange={(event) => updateEntraGuide("resource", event.target.value)} /></label>
               <label>
                 <span>Client app</span>
                 <select value={entraGuide.clientApp} onChange={(event) => updateEntraGuide("clientApp", event.target.value)}>
@@ -354,10 +395,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="unknown">Unknown / not checked</option>
                 </select>
               </label>
-              <label>
-                <span>Error code</span>
-                <input value={entraGuide.statusErrorCode} onChange={(event) => updateEntraGuide("statusErrorCode", event.target.value)} />
-              </label>
+              <label><span>Error code</span><input value={entraGuide.statusErrorCode} onChange={(event) => updateEntraGuide("statusErrorCode", event.target.value)} /></label>
               <label>
                 <span>Device compliant</span>
                 <select value={entraGuide.deviceCompliance} onChange={(event) => updateEntraGuide("deviceCompliance", event.target.value)}>
@@ -366,14 +404,63 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="unknown">Unknown / not checked</option>
                 </select>
               </label>
+              <label><span>IP address redacted/sample</span><input value={entraGuide.ipAddress} onChange={(event) => updateEntraGuide("ipAddress", event.target.value)} /></label>
+              <label className="trace-full-width"><span>Failure reason</span><textarea rows={3} value={entraGuide.failureReason} onChange={(event) => updateEntraGuide("failureReason", event.target.value)} /></label>
+            </fieldset>
+          ) : isLicenseGuidedMode ? (
+            <fieldset>
+              <legend>License / Service Plan guided form</legend>
+              <div className="trace-guidance-card trace-full-width">
+                <strong>Use this when authentication works but the service says the user is not licensed</strong>
+                <p>TRACE generates redacted access evidence and checks for license or service-plan symptoms without changing assignments.</p>
+              </div>
+              <div className="trace-guidance-card trace-full-width">
+                <strong>Evidence helper</strong>
+                <ul>
+                  <li><strong>License SKU:</strong> Confirm the expected product SKU and whether assignment is direct or group-based.</li>
+                  <li><strong>Service plan:</strong> Check whether the specific service plan is enabled, not only whether a product license exists.</li>
+                  <li><strong>Propagation:</strong> Check recent license changes before removing/reassigning licenses.</li>
+                  <li><strong>Comparison:</strong> Compare with a known-good user who can access the same service.</li>
+                </ul>
+              </div>
+              <label><span>Timestamp / time window</span><input value={licenseGuide.timestamp} onChange={(event) => updateLicenseGuide("timestamp", event.target.value)} /></label>
+              <label><span>Application</span><input value={licenseGuide.application} onChange={(event) => updateLicenseGuide("application", event.target.value)} /></label>
+              <label><span>Resource</span><input value={licenseGuide.resource} onChange={(event) => updateLicenseGuide("resource", event.target.value)} /></label>
+              <label><span>License SKU</span><input value={licenseGuide.sku} onChange={(event) => updateLicenseGuide("sku", event.target.value)} /></label>
+              <label><span>Service plan</span><input value={licenseGuide.servicePlan} onChange={(event) => updateLicenseGuide("servicePlan", event.target.value)} /></label>
               <label>
-                <span>IP address redacted/sample</span>
-                <input value={entraGuide.ipAddress} onChange={(event) => updateEntraGuide("ipAddress", event.target.value)} />
+                <span>License assigned</span>
+                <select value={licenseGuide.licenseAssigned} onChange={(event) => updateLicenseGuide("licenseAssigned", event.target.value as TernaryEvidence)}>
+                  <option value="false">No / missing</option>
+                  <option value="true">Yes</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
               </label>
-              <label className="trace-full-width">
-                <span>Failure reason</span>
-                <textarea rows={3} value={entraGuide.failureReason} onChange={(event) => updateEntraGuide("failureReason", event.target.value)} />
+              <label>
+                <span>Service plan enabled</span>
+                <select value={licenseGuide.servicePlanEnabled} onChange={(event) => updateLicenseGuide("servicePlanEnabled", event.target.value as TernaryEvidence)}>
+                  <option value="false">No / disabled</option>
+                  <option value="true">Yes</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
               </label>
+              <label>
+                <span>Licensing source</span>
+                <select value={licenseGuide.licensingSource} onChange={(event) => updateLicenseGuide("licensingSource", event.target.value)}>
+                  <option value="group-based licensing">Group-based licensing</option>
+                  <option value="direct assignment">Direct assignment</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
+              </label>
+              <label>
+                <span>Recent license change</span>
+                <select value={licenseGuide.recentChange} onChange={(event) => updateLicenseGuide("recentChange", event.target.value as TernaryEvidence)}>
+                  <option value="unknown">Unknown / not checked</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </label>
+              <label className="trace-full-width"><span>Observed failure / portal message</span><textarea rows={3} value={licenseGuide.failureReason} onChange={(event) => updateLicenseGuide("failureReason", event.target.value)} /></label>
             </fieldset>
           ) : isResourceGuidedMode ? (
             <fieldset>
@@ -392,14 +479,8 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <li><strong>Observed failure:</strong> Capture exact redacted error text, resource name, and time window. Do not paste secrets.</li>
                 </ul>
               </div>
-              <label>
-                <span>Timestamp / time window</span>
-                <input value={resourceGuide.timestamp} onChange={(event) => updateResourceGuide("timestamp", event.target.value)} />
-              </label>
-              <label>
-                <span>Application</span>
-                <input value={resourceGuide.application} onChange={(event) => updateResourceGuide("application", event.target.value)} />
-              </label>
+              <label><span>Timestamp / time window</span><input value={resourceGuide.timestamp} onChange={(event) => updateResourceGuide("timestamp", event.target.value)} /></label>
+              <label><span>Application</span><input value={resourceGuide.application} onChange={(event) => updateResourceGuide("application", event.target.value)} /></label>
               <label>
                 <span>Sign-in result</span>
                 <select value={resourceGuide.authenticationOutcome} onChange={(event) => updateResourceGuide("authenticationOutcome", event.target.value as OutcomeEvidence)}>
@@ -442,14 +523,8 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="unknown">Unknown / not checked</option>
                 </select>
               </label>
-              <label className="trace-full-width">
-                <span>Failure observed by user</span>
-                <textarea rows={3} value={resourceGuide.failureReason} onChange={(event) => updateResourceGuide("failureReason", event.target.value)} />
-              </label>
-              <label className="trace-full-width">
-                <span>Evidence checked, one item per line</span>
-                <textarea rows={5} value={resourceGuide.evidenceChecked} onChange={(event) => updateResourceGuide("evidenceChecked", event.target.value)} />
-              </label>
+              <label className="trace-full-width"><span>Failure observed by user</span><textarea rows={3} value={resourceGuide.failureReason} onChange={(event) => updateResourceGuide("failureReason", event.target.value)} /></label>
+              <label className="trace-full-width"><span>Evidence checked, one item per line</span><textarea rows={5} value={resourceGuide.evidenceChecked} onChange={(event) => updateResourceGuide("evidenceChecked", event.target.value)} /></label>
             </fieldset>
           ) : (
             <fieldset>
@@ -463,10 +538,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
 
           <fieldset>
             <legend>Operator context</legend>
-            <label className="trace-full-width">
-              <span>Operator notes optional</span>
-              <textarea rows={3} value={form.notes ?? ""} onChange={(event) => update("notes", event.target.value)} />
-            </label>
+            <label className="trace-full-width"><span>Operator notes optional</span><textarea rows={3} value={form.notes ?? ""} onChange={(event) => update("notes", event.target.value)} /></label>
           </fieldset>
 
           <div className="trace-form-footer">
@@ -479,7 +551,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
           <div className="trace-preview-heading">
             <div>
               <span className="trace-eyebrow">Analyzer input</span>
-              <h2>{isResourceGuidedMode ? "Generated structured evidence" : isEntraGuidedMode ? "Generated Entra sign-in CSV" : "Submitted evidence"}</h2>
+              <h2>{isResourceGuidedMode ? "Generated structured evidence" : isEntraGuidedMode ? "Generated Entra sign-in CSV" : isLicenseGuidedMode ? "Generated license evidence" : "Submitted evidence"}</h2>
             </div>
             <button className="trace-secondary-button" type="button" onClick={copyStructuredEvidence}>{isResourceGuidedMode ? "Copy JSON" : isEntraGuidedMode ? "Copy CSV" : "Copy evidence"}</button>
           </div>
