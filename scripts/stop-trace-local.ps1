@@ -78,7 +78,7 @@ foreach ($Port in $Ports) {
             try {
                 Stop-ProcessTree -Pid $Pid
             } catch {
-                Write-Host "Failed to stop PID $Pid: $($_.Exception.Message)" -ForegroundColor Red
+                Write-Host "Failed to stop PID $($Pid): $($_.Exception.Message)" -ForegroundColor Red
                 $ExitCode = 1
             }
         } else {
