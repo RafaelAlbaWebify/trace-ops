@@ -5,6 +5,7 @@ type AccessEvidencePageProps = {
   onResult: (result: StandardDiagnosticResult) => void;
 };
 
+type EvidenceMode = AccessEvidenceInput["sourceType"] | "entra_signin_guided_form";
 type TernaryEvidence = "true" | "false" | "unknown";
 type OutcomeEvidence = "success" | "failure" | "unknown";
 type ConditionalAccessEvidence = "success" | "failure" | "notApplied" | "unknown";
@@ -20,6 +21,20 @@ type ResourceAssignmentGuide = {
   mfaResult: MfaEvidence;
   failureReason: string;
   evidenceChecked: string;
+};
+
+type EntraGuidedForm = {
+  timestamp: string;
+  application: string;
+  resource: string;
+  clientApp: string;
+  ipAddress: string;
+  conditionalAccessStatus: ConditionalAccessEvidence;
+  authenticationRequirement: string;
+  status: string;
+  statusErrorCode: string;
+  failureReason: string;
+  deviceCompliance: string;
 };
 
 const defaultResourceGuide: ResourceAssignmentGuide = {
@@ -40,6 +55,20 @@ const defaultResourceGuide: ResourceAssignmentGuide = {
   ].join("\n")
 };
 
+const defaultEntraGuide: EntraGuidedForm = {
+  timestamp: "2026-07-07T09:22:11Z",
+  application: "SharePoint Online",
+  resource: "SharePoint Online",
+  clientApp: "Browser",
+  ipAddress: "203.0.113.10",
+  conditionalAccessStatus: "failure",
+  authenticationRequirement: "multiFactorAuthentication",
+  status: "failure",
+  statusErrorCode: "53003",
+  failureReason: "Access has been blocked by Conditional Access policies.",
+  deviceCompliance: "false"
+};
+
 function ternaryToBoolean(value: TernaryEvidence): boolean | undefined {
   if (value === "true") return true;
   if (value === "false") return false;
@@ -48,6 +77,18 @@ function ternaryToBoolean(value: TernaryEvidence): boolean | undefined {
 
 function evidenceLines(value: string): string[] {
   return value.split("\n").map((line) => line.trim()).filter(Boolean);
+}
+
+function csvEscape(value: string | undefined): string {
+  const text = value ?? "";
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function buildCsv(headers: string[], values: string[]): string {
+  return `${headers.join(",")}\n${values.map(csvEscape).join(",")}`;
 }
 
 function buildResourceAssignmentJson(form: AccessEvidenceInput, guide: ResourceAssignmentGuide): string {
@@ -69,6 +110,38 @@ function buildResourceAssignmentJson(form: AccessEvidenceInput, guide: ResourceA
   return JSON.stringify(payload, null, 2);
 }
 
+function buildEntraGuidedCsv(form: AccessEvidenceInput, guide: EntraGuidedForm): string {
+  const headers = [
+    "createdDateTime",
+    "userPrincipalName",
+    "appDisplayName",
+    "resourceDisplayName",
+    "clientAppUsed",
+    "ipAddress",
+    "conditionalAccessStatus",
+    "authenticationRequirement",
+    "status",
+    "status.errorCode",
+    "status.failureReason",
+    "deviceDetail.isCompliant"
+  ];
+  const values = [
+    guide.timestamp,
+    form.affectedUser || "sample.user@contoso.invalid",
+    guide.application,
+    guide.resource || form.affectedService || guide.application,
+    guide.clientApp,
+    guide.ipAddress,
+    guide.conditionalAccessStatus,
+    guide.authenticationRequirement,
+    guide.status,
+    guide.statusErrorCode,
+    guide.failureReason,
+    guide.deviceCompliance
+  ];
+  return buildCsv(headers, values);
+}
+
 const examples: Record<AccessEvidenceInput["sourceType"], string> = {
   generic_access_log_text: '2026-07-07T09:22:11Z user=sample.user@contoso.invalid app="SharePoint Online" result=failure reason="blocked by ca policy"',
   entra_signin_csv: `createdDateTime,userPrincipalName,appDisplayName,resourceDisplayName,clientAppUsed,conditionalAccessStatus,authenticationRequirement,status.errorCode,status.failureReason
@@ -76,30 +149,40 @@ const examples: Record<AccessEvidenceInput["sourceType"], string> = {
   resource_assignment_json: ""
 };
 
-function emptyAccessResult(sourceType: AccessEvidenceInput["sourceType"]): StandardDiagnosticResult {
-  const labels: Record<AccessEvidenceInput["sourceType"], string> = {
+function sourceTypeForMode(mode: EvidenceMode): AccessEvidenceInput["sourceType"] {
+  return mode === "entra_signin_guided_form" ? "entra_signin_csv" : mode;
+}
+
+function modeLabel(mode: EvidenceMode): string {
+  const labels: Record<EvidenceMode, string> = {
     generic_access_log_text: "Generic access log text",
     entra_signin_csv: "Entra sign-in CSV",
+    entra_signin_guided_form: "Conditional Access / MFA guided form",
     resource_assignment_json: "Resource assignment guided form"
   };
+  return labels[mode];
+}
 
+function emptyAccessResult(mode: EvidenceMode): StandardDiagnosticResult {
   return {
     title: "Access evidence analyzer",
     status: "not_run",
     findingId: null,
-    summary: `Ready to analyze ${labels[sourceType]} evidence.`,
+    summary: `Ready to analyze ${modeLabel(mode)} evidence.`,
     evidenceUsed: [],
     evidenceMissing: [],
     safeNextSteps: [],
     doNotChangeYet: [],
     limitations: [],
     readOnlyKept: true,
-    raw: { sourceType }
+    raw: { mode, sourceType: sourceTypeForMode(mode) }
   };
 }
 
 export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
+  const [mode, setMode] = useState<EvidenceMode>("generic_access_log_text");
   const [resourceGuide, setResourceGuide] = useState<ResourceAssignmentGuide>(defaultResourceGuide);
+  const [entraGuide, setEntraGuide] = useState<EntraGuidedForm>(defaultEntraGuide);
   const [form, setForm] = useState<AccessEvidenceInput>({
     sourceType: "generic_access_log_text",
     affectedUser: "sample.user@contoso.invalid",
@@ -110,8 +193,10 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
   const [running, setRunning] = useState(false);
 
   const generatedResourceJson = buildResourceAssignmentJson(form, resourceGuide);
-  const isResourceGuidedMode = form.sourceType === "resource_assignment_json";
-  const submittedEvidence = isResourceGuidedMode ? generatedResourceJson : form.content;
+  const generatedEntraCsv = buildEntraGuidedCsv(form, entraGuide);
+  const isResourceGuidedMode = mode === "resource_assignment_json";
+  const isEntraGuidedMode = mode === "entra_signin_guided_form";
+  const submittedEvidence = isResourceGuidedMode ? generatedResourceJson : isEntraGuidedMode ? generatedEntraCsv : form.content;
 
   function update<K extends keyof AccessEvidenceInput>(key: K, value: AccessEvidenceInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -121,14 +206,26 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
     setResourceGuide((current) => ({ ...current, [key]: value }));
   }
 
-  function useExample(sourceType: AccessEvidenceInput["sourceType"]) {
-    setForm((current) => ({
-      ...current,
-      sourceType,
-      content: sourceType === "resource_assignment_json" ? buildResourceAssignmentJson(current, resourceGuide) : examples[sourceType],
-      affectedService: sourceType === "resource_assignment_json" ? "Engineering SharePoint Site" : current.affectedService
-    }));
-    onResult(emptyAccessResult(sourceType));
+  function updateEntraGuide<K extends keyof EntraGuidedForm>(key: K, value: EntraGuidedForm[K]) {
+    setEntraGuide((current) => ({ ...current, [key]: value }));
+  }
+
+  function useExample(nextMode: EvidenceMode) {
+    setMode(nextMode);
+    setForm((current) => {
+      const nextSourceType = sourceTypeForMode(nextMode);
+      return {
+        ...current,
+        sourceType: nextSourceType,
+        content: nextMode === "resource_assignment_json"
+          ? buildResourceAssignmentJson(current, resourceGuide)
+          : nextMode === "entra_signin_guided_form"
+            ? buildEntraGuidedCsv(current, entraGuide)
+            : examples[nextSourceType],
+        affectedService: nextMode === "resource_assignment_json" ? "Engineering SharePoint Site" : current.affectedService
+      };
+    });
+    onResult(emptyAccessResult(nextMode));
   }
 
   async function copyStructuredEvidence() {
@@ -142,7 +239,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
   async function run() {
     setRunning(true);
     try {
-      const payload: AccessEvidenceInput = { ...form, content: submittedEvidence };
+      const payload: AccessEvidenceInput = { ...form, sourceType: sourceTypeForMode(mode), content: submittedEvidence };
       const result = await runAccessEvidenceAnalysis(payload);
       onResult(result);
     } finally {
@@ -176,9 +273,10 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
             <legend>Evidence source</legend>
             <label>
               <span>Source type</span>
-              <select value={form.sourceType} onChange={(event) => useExample(event.target.value as AccessEvidenceInput["sourceType"])}>
+              <select value={mode} onChange={(event) => useExample(event.target.value as EvidenceMode)}>
                 <option value="generic_access_log_text">Generic access log text</option>
                 <option value="entra_signin_csv">Entra sign-in CSV</option>
+                <option value="entra_signin_guided_form">Conditional Access / MFA guided form</option>
                 <option value="resource_assignment_json">Resource assignment guided form</option>
               </select>
             </label>
@@ -192,7 +290,92 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
             </label>
           </fieldset>
 
-          {isResourceGuidedMode ? (
+          {isEntraGuidedMode ? (
+            <fieldset>
+              <legend>Conditional Access / MFA guided form</legend>
+              <div className="trace-guidance-card trace-full-width">
+                <strong>Use this when sign-in evidence points to MFA, Conditional Access, client app, or device compliance</strong>
+                <p>TRACE will generate a redacted Entra sign-in CSV row from these fields and analyze it with the existing Entra export analyzer.</p>
+              </div>
+              <div className="trace-guidance-card trace-full-width">
+                <strong>Evidence helper</strong>
+                <ul>
+                  <li><strong>Same event:</strong> Use one sign-in event for the affected user, app, resource, and time window.</li>
+                  <li><strong>Conditional Access:</strong> Record the policy result and failure reason, but do not exclude users or disable policy from this evidence alone.</li>
+                  <li><strong>MFA:</strong> Use the sign-in detail value, not the user description of the prompt.</li>
+                  <li><strong>Client/device:</strong> Keep client app and device compliance because they often explain policy decisions.</li>
+                </ul>
+              </div>
+              <label>
+                <span>Timestamp / time window</span>
+                <input value={entraGuide.timestamp} onChange={(event) => updateEntraGuide("timestamp", event.target.value)} />
+              </label>
+              <label>
+                <span>Application</span>
+                <input value={entraGuide.application} onChange={(event) => updateEntraGuide("application", event.target.value)} />
+              </label>
+              <label>
+                <span>Resource</span>
+                <input value={entraGuide.resource} onChange={(event) => updateEntraGuide("resource", event.target.value)} />
+              </label>
+              <label>
+                <span>Client app</span>
+                <select value={entraGuide.clientApp} onChange={(event) => updateEntraGuide("clientApp", event.target.value)}>
+                  <option value="Browser">Browser</option>
+                  <option value="Mobile Apps and Desktop clients">Mobile Apps and Desktop clients</option>
+                  <option value="Other clients">Other clients</option>
+                  <option value="IMAP">IMAP</option>
+                  <option value="POP">POP</option>
+                  <option value="SMTP">SMTP</option>
+                </select>
+              </label>
+              <label>
+                <span>Sign-in status</span>
+                <select value={entraGuide.status} onChange={(event) => updateEntraGuide("status", event.target.value)}>
+                  <option value="failure">Failure</option>
+                  <option value="success">Success</option>
+                  <option value="interrupted">Interrupted</option>
+                </select>
+              </label>
+              <label>
+                <span>Conditional Access result</span>
+                <select value={entraGuide.conditionalAccessStatus} onChange={(event) => updateEntraGuide("conditionalAccessStatus", event.target.value as ConditionalAccessEvidence)}>
+                  <option value="failure">Failure / blocking</option>
+                  <option value="success">Success / not blocking</option>
+                  <option value="notApplied">Not applied</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
+              </label>
+              <label>
+                <span>Authentication requirement</span>
+                <select value={entraGuide.authenticationRequirement} onChange={(event) => updateEntraGuide("authenticationRequirement", event.target.value)}>
+                  <option value="multiFactorAuthentication">multiFactorAuthentication</option>
+                  <option value="singleFactorAuthentication">singleFactorAuthentication</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
+              </label>
+              <label>
+                <span>Error code</span>
+                <input value={entraGuide.statusErrorCode} onChange={(event) => updateEntraGuide("statusErrorCode", event.target.value)} />
+              </label>
+              <label>
+                <span>Device compliant</span>
+                <select value={entraGuide.deviceCompliance} onChange={(event) => updateEntraGuide("deviceCompliance", event.target.value)}>
+                  <option value="false">False</option>
+                  <option value="true">True</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
+              </label>
+              <label>
+                <span>IP address redacted/sample</span>
+                <input value={entraGuide.ipAddress} onChange={(event) => updateEntraGuide("ipAddress", event.target.value)} />
+              </label>
+              <label className="trace-full-width">
+                <span>Failure reason</span>
+                <textarea rows={3} value={entraGuide.failureReason} onChange={(event) => updateEntraGuide("failureReason", event.target.value)} />
+              </label>
+            </fieldset>
+          ) : isResourceGuidedMode ? (
             <fieldset>
               <legend>Resource assignment guided form</legend>
               <div className="trace-guidance-card trace-full-width">
@@ -296,12 +479,12 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
           <div className="trace-preview-heading">
             <div>
               <span className="trace-eyebrow">Analyzer input</span>
-              <h2>{isResourceGuidedMode ? "Generated structured evidence" : "Submitted evidence"}</h2>
+              <h2>{isResourceGuidedMode ? "Generated structured evidence" : isEntraGuidedMode ? "Generated Entra sign-in CSV" : "Submitted evidence"}</h2>
             </div>
-            <button className="trace-secondary-button" type="button" onClick={copyStructuredEvidence}>{isResourceGuidedMode ? "Copy JSON" : "Copy evidence"}</button>
+            <button className="trace-secondary-button" type="button" onClick={copyStructuredEvidence}>{isResourceGuidedMode ? "Copy JSON" : isEntraGuidedMode ? "Copy CSV" : "Copy evidence"}</button>
           </div>
           <pre className="trace-structured-preview">{submittedEvidence || "No evidence provided yet."}</pre>
-          <p className="trace-muted">This is the exact evidence TRACE sends to the analyzer. In guided mode, the JSON is generated from the technician's answers.</p>
+          <p className="trace-muted">This is the exact evidence TRACE sends to the analyzer. Guided modes generate structured evidence from the technician's answers.</p>
         </aside>
       </div>
     </section>

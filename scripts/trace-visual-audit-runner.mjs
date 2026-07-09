@@ -181,6 +181,13 @@ try {
   await page.waitForTimeout(1500);
   await snapshot(page, "after entra csv analysis");
 
+  await selectSource(page, "entra_signin_guided_form");
+  await page.waitForTimeout(300);
+  await snapshot(page, "conditional access mfa guided form selected");
+  await clickButton(page, /Analyze evidence/i);
+  await page.waitForTimeout(1500);
+  await snapshot(page, "after conditional access mfa analysis");
+
   await selectSource(page, "resource_assignment_json");
   await page.waitForTimeout(300);
   await snapshot(page, "resource assignment guided form selected");
@@ -189,7 +196,7 @@ try {
   await snapshot(page, "after resource assignment analysis");
 
   const preview = page.locator('[aria-label="Structured evidence preview"]');
-  await clickButton(page, /Copy JSON|Copy evidence/i, { scope: preview });
+  await clickButton(page, /Copy JSON|Copy CSV|Copy evidence/i, { scope: preview });
   await page.waitForTimeout(300);
   await snapshot(page, "after copy analyzer input click");
 
