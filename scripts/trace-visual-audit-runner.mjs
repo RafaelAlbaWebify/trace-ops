@@ -45,7 +45,8 @@ async function collectPageState(page, name) {
       text: textOf(button),
       disabled: button.disabled,
       className: button.className || "",
-      ariaLabel: button.getAttribute("aria-label") || null
+      ariaLabel: button.getAttribute("aria-label") || null,
+      moduleId: button.getAttribute("data-module-id") || null
     }));
 
     const inputs = Array.from(document.querySelectorAll("input, textarea, select")).filter(visibleText).map((input) => {
@@ -68,7 +69,8 @@ async function collectPageState(page, name) {
     const navButtons = Array.from(document.querySelectorAll("nav button")).filter(visibleText).map((button) => ({
       text: textOf(button),
       active: button.className.includes("active"),
-      disabled: button.disabled
+      disabled: button.disabled,
+      moduleId: button.getAttribute("data-module-id") || null
     }));
 
     const resultPanel = document.querySelector('[aria-label="Diagnostic result panel"]');
@@ -109,10 +111,12 @@ async function clickButton(page, label, options = {}) {
   return entry.ok;
 }
 
-async function clickNav(page, exactText) {
-  const entry = { action: "nav", target: exactText, ok: false, error: null };
+async function clickModule(page, moduleId) {
+  const entry = { action: "nav", target: moduleId, ok: false, error: null };
   try {
-    await page.locator("nav button", { hasText: exactText }).first().click({ timeout: 5000 });
+    const locator = page.locator(`[data-module-id="${moduleId}"]`).first();
+    await locator.scrollIntoViewIfNeeded({ timeout: 5000 });
+    await locator.click({ timeout: 5000 });
     entry.ok = true;
   } catch (error) {
     entry.error = error instanceof Error ? error.message : String(error);
@@ -181,11 +185,11 @@ try {
   await page.waitForTimeout(300);
   await snapshot(page, "after copy analyzer input click");
 
-  await clickNav(page, "History");
+  await clickModule(page, "history");
   await page.waitForTimeout(1000);
   await snapshot(page, "history page");
 
-  await clickNav(page, "Overview");
+  await clickModule(page, "overview");
   await page.waitForTimeout(800);
   await snapshot(page, "overview page");
 
