@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import "./styles/trace-shell.css";
-import "./styles/resource-evidence-helpers.css";
 window.__TRACE_ENDPOINTS__ = {};
 
 import { getBackendHealth, getHistory, StandardDiagnosticResult } from "./api/traceApi";
