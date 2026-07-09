@@ -196,8 +196,18 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
             <fieldset>
               <legend>Resource assignment guided form</legend>
               <div className="trace-guidance-card trace-full-width">
-                <strong>Where to get this evidence</strong>
-                <p>Use Entra sign-in logs for authentication/MFA/Conditional Access, the ticket or resource owner for expected access, and SharePoint/M365/AD/app assignment views for membership evidence.</p>
+                <strong>Use this when authentication worked but access still fails</strong>
+                <p>Collect enough evidence to separate sign-in, MFA, Conditional Access, expected access, and resource membership before recommending any change.</p>
+              </div>
+              <div className="trace-guidance-card trace-full-width">
+                <strong>Evidence helper</strong>
+                <ul>
+                  <li><strong>Authentication:</strong> Check the Entra sign-in result for the same user, application, and timestamp.</li>
+                  <li><strong>MFA / Conditional Access:</strong> Use sign-in details, status, error code, and failure reason before changing policies.</li>
+                  <li><strong>Assignment:</strong> Check the actual access path: SharePoint/M365 membership, AD group, or app assignment.</li>
+                  <li><strong>Expected access:</strong> Confirm with ticket, owner, manager, or access request before recommending membership changes.</li>
+                  <li><strong>Observed failure:</strong> Capture exact redacted error text, resource name, and time window. Do not paste secrets.</li>
+                </ul>
               </div>
               <label>
                 <span>Timestamp / time window</span>
