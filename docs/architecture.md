@@ -1,86 +1,184 @@
-# TRACE Local MVP Architecture
+# TRACE Architecture
 
-This document describes the verified TRACE local sample-mode MVP for the M365 Access Path Analyzer.
+TRACE is a local-first IAM/access evidence workbench.
 
-The current MVP uses synthetic sample data only. It does not call Microsoft Graph, connect to a Microsoft 365 tenant, perform remediation, or include attack simulation.
+The current architecture focuses on the **Access Evidence** workspace: redacted evidence enters through the UI or API, the backend normalizes and analyzes it, and TRACE returns structured findings, missing evidence, safe next checks, non-actions, and local reports.
 
-## Architecture Diagram
-
-```mermaid
-flowchart TD
-    Browser["Browser / React frontend"]
-    Vite["Vite dev proxy<br/>/api -> 127.0.0.1:8000"]
-    API["FastAPI backend"]
-    Scan["POST /api/scan/user-access"]
-    Collector["PowerShell sample-mode collector<br/>Invoke-TraceM365AccessScan.ps1"]
-    Samples["Synthetic sample data<br/>samples/*.json"]
-    Analyzer["Analyzer rules<br/>deterministic findings"]
-    SQLite["SQLite local history<br/>backend/data/trace_history.sqlite3"]
-    JsonReport["GET /api/history/{history_id}/report.json"]
-    HtmlReport["GET /api/history/{history_id}/report.html"]
-    History["GET /api/history"]
-
-    Browser --> Vite
-    Vite --> API
-    API --> Scan
-    Scan --> Collector
-    Collector --> Samples
-    Collector --> API
-    API --> Analyzer
-    Analyzer --> API
-    API --> SQLite
-    SQLite --> History
-    SQLite --> JsonReport
-    SQLite --> HtmlReport
-    History --> API
-    JsonReport --> API
-    HtmlReport --> API
-    API --> Vite
-    Vite --> Browser
-```
-
-## Current Flow
-
-1. The user opens the React frontend locally.
-2. The frontend sends API requests through the Vite development proxy.
-3. The FastAPI backend receives the scan request at `POST /api/scan/user-access`.
-4. The backend runs the PowerShell collector in sample mode only.
-5. The collector reads synthetic JSON from `samples/` and returns normalized JSON.
-6. The backend validates the collector output.
-7. Deterministic analyzer rules create support-ready findings.
-8. The backend saves the full scan response to local SQLite history.
-9. The frontend displays the result and recent history.
-10. JSON and HTML report endpoints generate reports from saved local scan history.
-
-## Local-Only Storage
-
-SQLite history is stored locally at:
+## Current High-Level Flow
 
 ```text
-backend/data/trace_history.sqlite3
+Browser / React UI
+  -> Access Evidence form or guided workflow
+  -> FastAPI endpoint POST /api/logs/analyze
+  -> source dispatcher
+  -> parser or structured analyzer
+  -> deterministic findings
+  -> local run store
+  -> UI result panel + Markdown report
 ```
 
-This storage is for local sample-mode scan history. It must not store access tokens, refresh tokens, passwords, client secrets, or raw credentials.
+## Main Components
 
-## Report Generation
+```text
+trace-ops/
+|-- backend/
+|   |-- app/
+|   |   |-- main.py
+|   |   |-- logs.py
+|   |   |-- log_models.py
+|   |   |-- log_parser.py
+|   |   |-- log_analyzer.py
+|   |   |-- entra_signin_analyzer.py
+|   |   |-- resource_assignment_analyzer.py
+|   |   `-- access_run_store.py
+|   `-- tests/
+|
+|-- frontend/
+|   |-- src/App.tsx
+|   |-- src/api/traceApi.ts
+|   |-- src/modules/accessEvidence/AccessEvidencePage.tsx
+|   |-- src/ui/ResultPanel.tsx
+|   `-- src/styles/trace-shell.css
+|
+|-- collector/
+|   `-- PowerShell read-only collector samples and contract tests
+|
+|-- scripts/
+|   |-- trace-visual-audit-runner.mjs
+|   |-- VISUAL_AUDIT_TRACE_LOCAL.bat
+|   `-- STOP_TRACE_LOCAL.bat
+|
+|-- samples/
+`-- docs/
+```
 
-Reports are generated from saved local scan history:
+## Access Evidence API
 
-- `GET /api/history/{history_id}/report.json`
-- `GET /api/history/{history_id}/report.html`
+Primary endpoint:
 
-The report layer does not re-run collection. It formats an already saved scan response and analyzer output.
+```text
+POST /api/logs/analyze
+```
 
-## Explicit Non-Goals In The Current MVP
+History and report endpoints:
 
-The current MVP does not include:
+```text
+GET /api/logs/history
+GET /api/logs/history/{run_id}
+GET /api/logs/reports/{run_id}.md
+```
 
-- Microsoft Graph calls
-- Microsoft 365 tenant connection
-- delegated authentication
-- permission consent flows
+## Source Dispatcher
+
+The backend dispatches by `source_type`:
+
+```text
+generic_access_log_text
+  -> log_parser.py
+  -> log_analyzer.py
+
+entra_signin_csv
+  -> entra_signin_analyzer.py
+
+resource_assignment_json
+  -> resource_assignment_analyzer.py
+```
+
+Some frontend guided forms generate analyzer-compatible evidence:
+
+```text
+Conditional Access / MFA guided form
+  -> generated Entra sign-in CSV
+  -> source_type: entra_signin_csv
+
+License / Service Plan guided form
+  -> generated generic access evidence
+  -> source_type: generic_access_log_text
+
+Guest / B2B guided form
+  -> generated generic access evidence
+  -> source_type: generic_access_log_text
+
+Resource Assignment guided form
+  -> generated structured JSON
+  -> source_type: resource_assignment_json
+```
+
+## Analyzer Outputs
+
+A successful analysis can include:
+
+- status
+- source type
+- parse status
+- normalized events
+- detected patterns
+- primary finding
+- confidence
+- evidence used
+- evidence missing
+- safe next steps
+- what not to change yet
+- limitations
+- Markdown report
+- run ID
+
+## Local Run Store
+
+Access evidence runs are stored locally as JSON and Markdown.
+
+The default location is:
+
+```text
+.trace-runs/access-evidence
+```
+
+This store is intended for local demo and portfolio proof. It should contain only public-safe or redacted evidence.
+
+## Frontend Structure
+
+The frontend is organized as a modular operator shell.
+
+The main Access Evidence page supports:
+
+- generic text evidence
+- Entra sign-in CSV evidence
+- Conditional Access / MFA guided form
+- License / Service Plan guided form
+- Guest / B2B guided form
+- Resource Assignment guided form
+- generated analyzer-input preview
+- copy analyzer input
+- result panel integration
+
+## Visual Audit Architecture
+
+TRACE includes a local visual audit runner that starts the backend and frontend, drives the UI, captures screenshots, records console/page/network errors, and writes a ZIP proof package.
+
+The visual audit covers:
+
+- initial Access Evidence page
+- generic access evidence analysis
+- Entra CSV analysis
+- Conditional Access / MFA guided form and analysis
+- License / Service Plan guided form and analysis
+- Guest / B2B guided form and analysis
+- Resource Assignment guided form and analysis
+- copy analyzer input
+- History navigation
+- Overview navigation
+
+The audit fails when it detects page errors, failed requests, bad HTTP responses, or failed UI interactions.
+
+## Non-Goals
+
+TRACE does not currently include:
+
+- production tenant connection by default
 - automatic remediation
-- attack simulation
-- cloud-hosted processing
+- credential storage
+- live monitoring
+- SIEM or EDR functionality
+- formal compliance reporting
 
-Future real Microsoft Graph collection must preserve the normalized collector contract used by the sample-mode workflow.
+Future real data collection should remain read-only and should preserve the same normalized evidence contracts.
