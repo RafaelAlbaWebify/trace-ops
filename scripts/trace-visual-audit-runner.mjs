@@ -188,6 +188,13 @@ try {
   await page.waitForTimeout(1500);
   await snapshot(page, "after conditional access mfa analysis");
 
+  await selectSource(page, "license_service_plan_guided_form");
+  await page.waitForTimeout(300);
+  await snapshot(page, "license service plan guided form selected");
+  await clickButton(page, /Analyze evidence/i);
+  await page.waitForTimeout(1500);
+  await snapshot(page, "after license service plan analysis");
+
   await selectSource(page, "resource_assignment_json");
   await page.waitForTimeout(300);
   await snapshot(page, "resource assignment guided form selected");
