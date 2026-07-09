@@ -40,9 +40,11 @@ async function collectPageState(page, name) {
     };
 
     const textOf = (element) => (element.innerText || element.textContent || "").trim().replace(/\s+/g, " ");
+    const labelOf = (element) => element.getAttribute("data-nav-label") || element.getAttribute("aria-label") || textOf(element);
 
     const buttons = Array.from(document.querySelectorAll("button")).filter(visibleText).map((button) => ({
-      text: textOf(button),
+      text: labelOf(button),
+      visibleText: textOf(button),
       disabled: button.disabled,
       className: button.className || "",
       ariaLabel: button.getAttribute("aria-label") || null,
@@ -67,7 +69,8 @@ async function collectPageState(page, name) {
     }));
 
     const navButtons = Array.from(document.querySelectorAll("nav button")).filter(visibleText).map((button) => ({
-      text: textOf(button),
+      text: labelOf(button),
+      visibleText: textOf(button),
       active: button.className.includes("active"),
       disabled: button.disabled,
       moduleId: button.getAttribute("data-module-id") || null
