@@ -19,11 +19,16 @@ const result = {
   interactions: [],
   consoleMessages: [],
   pageErrors: [],
-  failedRequests: []
+  failedRequests: [],
+  badResponses: []
 };
 
 function safeName(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "step";
+}
+
+function targetLabel(label) {
+  return label instanceof RegExp ? label.toString() : String(label);
 }
 
 async function collectPageState(page, name) {
@@ -91,10 +96,23 @@ async function snapshot(page, name) {
   result.screenshots.push(state);
 }
 
-async function clickButton(page, label) {
-  const entry = { action: "click", target: label, ok: false, error: null };
+async function clickButton(page, label, options = {}) {
+  const entry = { action: "click", target: targetLabel(label), ok: false, error: null };
   try {
-    await page.getByRole("button", { name: label }).click({ timeout: 5000 });
+    const locator = options.scope ? options.scope.getByRole("button", { name: label }) : page.getByRole("button", { name: label });
+    await locator.click({ timeout: 5000 });
+    entry.ok = true;
+  } catch (error) {
+    entry.error = error instanceof Error ? error.message : String(error);
+  }
+  result.interactions.push(entry);
+  return entry.ok;
+}
+
+async function clickNav(page, exactText) {
+  const entry = { action: "nav", target: exactText, ok: false, error: null };
+  try {
+    await page.locator("nav button", { hasText: exactText }).first().click({ timeout: 5000 });
     entry.ok = true;
   } catch (error) {
     entry.error = error instanceof Error ? error.message : String(error);
@@ -128,6 +146,13 @@ page.on("pageerror", (error) => {
 page.on("requestfailed", (request) => {
   result.failedRequests.push({ url: request.url(), method: request.method(), failure: request.failure()?.errorText || null });
 });
+page.on("response", (response) => {
+  const status = response.status();
+  const url = response.url();
+  if (status >= 400 && !url.includes("/@vite") && !url.includes("react-devtools")) {
+    result.badResponses.push({ url, method: response.request().method(), status, statusText: response.statusText() });
+  }
+});
 
 try {
   await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 30000 });
@@ -146,29 +171,30 @@ try {
 
   await selectSource(page, "resource_assignment_json");
   await page.waitForTimeout(300);
-  await snapshot(page, "resource assignment json example selected");
+  await snapshot(page, "resource assignment guided form selected");
   await clickButton(page, /Analyze evidence/i);
   await page.waitForTimeout(1500);
   await snapshot(page, "after resource assignment analysis");
 
-  await clickButton(page, /Copy/i);
+  const preview = page.locator('[aria-label="Structured evidence preview"]');
+  await clickButton(page, /Copy JSON|Copy evidence/i, { scope: preview });
   await page.waitForTimeout(300);
-  await snapshot(page, "after copy ticket summary click");
+  await snapshot(page, "after copy analyzer input click");
 
-  try {
-    await page.getByText("Evidence", { exact: true }).click({ timeout: 3000 });
-  } catch {
-    // Evidence details may already be open or hidden depending on layout.
-  }
-  await clickButton(page, /History/i);
+  await clickNav(page, "History");
   await page.waitForTimeout(1000);
   await snapshot(page, "history page");
 
-  await clickButton(page, /Overview/i);
+  await clickNav(page, "Overview");
   await page.waitForTimeout(800);
   await snapshot(page, "overview page");
 
-  result.status = result.pageErrors.length === 0 ? "completed" : "completed_with_page_errors";
+  const failedInteractions = result.interactions.filter((interaction) => !interaction.ok).length;
+  if (result.pageErrors.length > 0 || result.failedRequests.length > 0 || result.badResponses.length > 0 || failedInteractions > 0) {
+    result.status = "completed_with_findings";
+  } else {
+    result.status = "completed";
+  }
 } catch (error) {
   result.status = "failed";
   result.fatalError = error instanceof Error ? error.message : String(error);
@@ -193,6 +219,7 @@ markdown.push(`- Screenshots: ${result.screenshots.length}`);
 markdown.push(`- Console messages: ${result.consoleMessages.length}`);
 markdown.push(`- Page errors: ${result.pageErrors.length}`);
 markdown.push(`- Failed requests: ${result.failedRequests.length}`);
+markdown.push(`- Bad HTTP responses: ${result.badResponses.length}`);
 markdown.push("");
 markdown.push("## Screenshots");
 for (const shot of result.screenshots) {
@@ -209,9 +236,17 @@ for (const interaction of result.interactions) {
   markdown.push(`- ${interaction.ok ? "PASS" : "FAIL"} ${interaction.action}: ${interaction.target}${interaction.value ? ` = ${interaction.value}` : ""}${interaction.error ? ` — ${interaction.error}` : ""}`);
 }
 
+if (result.badResponses.length > 0) {
+  markdown.push("");
+  markdown.push("## Bad HTTP responses");
+  for (const response of result.badResponses) {
+    markdown.push(`- ${response.status} ${response.method} ${response.url}`);
+  }
+}
+
 fs.writeFileSync(path.join(auditRoot, "visual-audit-report.md"), markdown.join("\n"), "utf8");
 
-if (result.status === "failed") {
+if (result.status === "failed" || result.status === "completed_with_findings") {
   process.exit(1);
 }
 process.exit(0);
