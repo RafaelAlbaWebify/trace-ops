@@ -1,0 +1,114 @@
+.trace-field-hint {
+  margin: 0;
+  color: var(--trace-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-weight: 650;
+}
+
+.trace-evidence-helper {
+  grid-column: 1 / -1;
+  border: 1px solid var(--trace-border);
+  border-radius: var(--trace-radius-md);
+  background: linear-gradient(180deg, #ffffff, var(--trace-surface-soft));
+  overflow: hidden;
+}
+
+.trace-evidence-helper summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  color: var(--trace-text);
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.trace-evidence-helper summary::after {
+  content: "show / hide";
+  color: var(--trace-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.trace-evidence-map-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.trace-evidence-map-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--trace-border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.trace-evidence-map-card strong {
+  color: var(--trace-accent-strong);
+  font-size: 0.84rem;
+}
+
+.trace-evidence-map-card dl {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.trace-evidence-map-card dt {
+  color: var(--trace-muted);
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.trace-evidence-map-card dd {
+  margin: 0 0 5px;
+  color: var(--trace-muted-strong);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  font-weight: 650;
+}
+
+.trace-mini-checklist {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #f3d791;
+  border-radius: var(--trace-radius-md);
+  background: var(--trace-warning-soft);
+}
+
+.trace-mini-checklist strong {
+  color: var(--trace-warning);
+  font-size: 0.84rem;
+}
+
+.trace-mini-checklist ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.trace-mini-checklist li {
+  color: var(--trace-muted-strong);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  font-weight: 650;
+}
+
+@media (max-width: 760px) {
+  .trace-evidence-map-grid {
+    grid-template-columns: 1fr;
+  }
+}
