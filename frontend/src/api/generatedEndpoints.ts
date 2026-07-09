@@ -3,10 +3,7 @@ export const generatedEndpoints: Record<string, string[]> = {
     "/api/health"
   ],
   "history": [
-    "/api/scan/user-access",
-    "/api/history",
-    "/api/history/{history_id}/report.json",
-    "/api/history/{history_id}/report.html"
+    "/api/logs/history"
   ],
   "shareAccess": [
     "/api/diagnostics/factoryops/computer",
