@@ -11,6 +11,8 @@ export function SidebarNav({ activeId, onSelect }: SidebarNavProps) {
       <button
         className={`trace-nav-item ${activeId === "overview" ? "active" : ""}`}
         data-module-id="overview"
+        data-nav-label="Overview"
+        aria-label="Overview"
         onClick={() => onSelect("overview")}
       >
         <span>Overview</span>
@@ -25,10 +27,12 @@ export function SidebarNav({ activeId, onSelect }: SidebarNavProps) {
                 key={module.id}
                 className={`trace-nav-item ${activeId === module.id ? "active" : ""}`}
                 data-module-id={module.id}
+                data-nav-label={module.label}
+                aria-label={module.label}
                 onClick={() => onSelect(module.id)}
               >
                 <span>{module.label}</span>
-                <small>{module.maturity}</small>
+                <small aria-hidden="true">{module.maturity}</small>
               </button>
             ))}
           </div>
