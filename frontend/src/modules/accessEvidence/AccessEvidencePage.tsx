@@ -89,6 +89,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
 
   const generatedResourceJson = buildResourceAssignmentJson(form, resourceGuide);
   const isResourceGuidedMode = form.sourceType === "resource_assignment_json";
+  const submittedEvidence = isResourceGuidedMode ? generatedResourceJson : form.content;
 
   function update<K extends keyof AccessEvidenceInput>(key: K, value: AccessEvidenceInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -107,12 +108,18 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
     }));
   }
 
+  async function copyStructuredEvidence() {
+    try {
+      await navigator.clipboard.writeText(submittedEvidence);
+    } catch {
+      // Clipboard can be unavailable in some local browser contexts. The preview remains visible.
+    }
+  }
+
   async function run() {
     setRunning(true);
     try {
-      const payload: AccessEvidenceInput = isResourceGuidedMode
-        ? { ...form, content: generatedResourceJson }
-        : form;
+      const payload: AccessEvidenceInput = { ...form, content: submittedEvidence };
       const result = await runAccessEvidenceAnalysis(payload);
       onResult(result);
     } finally {
@@ -121,156 +128,149 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
   }
 
   return (
-    <section className="trace-page">
-      <div className="trace-page-header">
-        <span className="trace-eyebrow">IAM / access evidence</span>
-        <h1>Access evidence intake</h1>
-        <p>Paste redacted access evidence, choose the source type, or use the guided resource-assignment check to structure what the technician verified.</p>
+    <section className="trace-page trace-access-page">
+      <div className="trace-page-header trace-page-header-inline">
+        <div>
+          <span className="trace-eyebrow">IAM / access evidence</span>
+          <h1>Access evidence intake</h1>
+          <p>Provide redacted evidence so TRACE can structure findings, missing evidence, safe next checks, and non-actions.</p>
+        </div>
       </div>
 
-      <section className="trace-help-card compact">
+      <section className="trace-info-banner" aria-label="Operator guardrail">
         <div>
-          <span className="trace-eyebrow">Operator guardrail</span>
-          <h2>Use redacted evidence only</h2>
-          <p>TRACE helps the technician collect and structure access evidence locally. It does not change users, groups, policies, resources, or permissions.</p>
+          <span className="trace-banner-icon" aria-hidden="true">✓</span>
         </div>
-        <ul>
-          <li>Generic access log text</li>
-          <li>Exported Entra sign-in CSV</li>
-          <li>Guided resource assignment check</li>
-          <li>Ticket-ready Markdown in the result panel</li>
-        </ul>
+        <div>
+          <h2>Read-only • Redacted evidence only</h2>
+          <p>Do not paste passwords, tokens, session cookies, personal data, or customer-sensitive content. TRACE structures evidence locally and does not change production systems.</p>
+        </div>
       </section>
 
-      <form className="trace-form" onSubmit={(event) => { event.preventDefault(); void run(); }}>
-        <fieldset>
-          <legend>Evidence source</legend>
-          <label>
-            <span>Source type</span>
-            <select value={form.sourceType} onChange={(event) => useExample(event.target.value as AccessEvidenceInput["sourceType"])}>
-              <option value="generic_access_log_text">Generic access log text</option>
-              <option value="entra_signin_csv">Entra sign-in CSV</option>
-              <option value="resource_assignment_json">Resource assignment guided form</option>
-            </select>
-          </label>
-          <label>
-            <span>Affected user</span>
-            <input value={form.affectedUser ?? ""} onChange={(event) => update("affectedUser", event.target.value)} />
-          </label>
-          <label>
-            <span>Affected service/resource</span>
-            <input value={form.affectedService ?? ""} onChange={(event) => update("affectedService", event.target.value)} />
-          </label>
-        </fieldset>
-
-        {isResourceGuidedMode && (
+      <div className="trace-workbench-grid">
+        <form className="trace-form trace-evidence-form" onSubmit={(event) => { event.preventDefault(); void run(); }}>
           <fieldset>
-            <legend>Guided resource assignment check</legend>
-            <section className="trace-help-card compact">
-              <div>
-                <span className="trace-eyebrow">Where to get the evidence</span>
-                <h2>Check these before changing access</h2>
-                <p>Use the normal admin portals, ticket/request context, or approved evidence sources. TRACE only structures what you verified.</p>
-              </div>
-              <ul>
-                <li>Entra sign-in log: authentication, MFA, Conditional Access</li>
-                <li>Ticket/resource owner: whether access is expected</li>
-                <li>SharePoint/M365 group/AD group/app role: whether assignment exists</li>
-                <li>Retest notes: what the user sees after sign-in</li>
-              </ul>
-            </section>
-
+            <legend>Evidence source</legend>
             <label>
-              <span>Timestamp / time window</span>
-              <input value={resourceGuide.timestamp} onChange={(event) => updateResourceGuide("timestamp", event.target.value)} />
-            </label>
-            <label>
-              <span>Application</span>
-              <input value={resourceGuide.application} onChange={(event) => updateResourceGuide("application", event.target.value)} />
-            </label>
-            <label>
-              <span>Did sign-in/authentication succeed?</span>
-              <select value={resourceGuide.authenticationOutcome} onChange={(event) => updateResourceGuide("authenticationOutcome", event.target.value as OutcomeEvidence)}>
-                <option value="success">Yes, sign-in succeeded</option>
-                <option value="failure">No, sign-in failed</option>
-                <option value="unknown">Unknown / not checked</option>
+              <span>Source type</span>
+              <select value={form.sourceType} onChange={(event) => useExample(event.target.value as AccessEvidenceInput["sourceType"])}>
+                <option value="generic_access_log_text">Generic access log text</option>
+                <option value="entra_signin_csv">Entra sign-in CSV</option>
+                <option value="resource_assignment_json">Resource assignment guided form</option>
               </select>
             </label>
             <label>
-              <span>Did MFA pass?</span>
-              <select value={resourceGuide.mfaResult} onChange={(event) => updateResourceGuide("mfaResult", event.target.value as MfaEvidence)}>
-                <option value="satisfied">Yes, MFA satisfied</option>
-                <option value="required">MFA required / pending</option>
-                <option value="failure">MFA failed</option>
-                <option value="unknown">Unknown / not checked</option>
-              </select>
+              <span>Affected user</span>
+              <input value={form.affectedUser ?? ""} onChange={(event) => update("affectedUser", event.target.value)} />
             </label>
             <label>
-              <span>Conditional Access result</span>
-              <select value={resourceGuide.conditionalAccessStatus} onChange={(event) => updateResourceGuide("conditionalAccessStatus", event.target.value as ConditionalAccessEvidence)}>
-                <option value="success">Success / not blocking</option>
-                <option value="failure">Failure / blocking</option>
-                <option value="notApplied">Not applied</option>
-                <option value="unknown">Unknown / not checked</option>
-              </select>
-            </label>
-            <label>
-              <span>Is the user assigned/member of the resource access path?</span>
-              <select value={resourceGuide.assignmentPresent} onChange={(event) => updateResourceGuide("assignmentPresent", event.target.value as TernaryEvidence)}>
-                <option value="false">No, assignment/membership missing</option>
-                <option value="true">Yes, assignment/membership present</option>
-                <option value="unknown">Unknown / not checked</option>
-              </select>
-            </label>
-            <label>
-              <span>Is access expected/approved?</span>
-              <select value={resourceGuide.expectedAccessConfirmed} onChange={(event) => updateResourceGuide("expectedAccessConfirmed", event.target.value as TernaryEvidence)}>
-                <option value="true">Yes, expected access confirmed</option>
-                <option value="false">No, access not confirmed</option>
-                <option value="unknown">Unknown / not checked</option>
-              </select>
-            </label>
-            <label className="trace-full-width">
-              <span>Failure observed by user</span>
-              <textarea rows={3} value={resourceGuide.failureReason} onChange={(event) => updateResourceGuide("failureReason", event.target.value)} />
-            </label>
-            <label className="trace-full-width">
-              <span>Evidence checked, one item per line</span>
-              <textarea rows={5} value={resourceGuide.evidenceChecked} onChange={(event) => updateResourceGuide("evidenceChecked", event.target.value)} />
+              <span>Affected service/resource</span>
+              <input value={form.affectedService ?? ""} onChange={(event) => update("affectedService", event.target.value)} />
             </label>
           </fieldset>
-        )}
 
-        <fieldset>
-          <legend>{isResourceGuidedMode ? "Generated structured evidence" : "Evidence content"}</legend>
-          <label className="trace-full-width">
-            <span>{isResourceGuidedMode ? "Generated JSON preview" : "Paste redacted evidence"}</span>
-            <textarea
-              rows={isResourceGuidedMode ? 10 : 12}
-              value={isResourceGuidedMode ? generatedResourceJson : form.content}
-              readOnly={isResourceGuidedMode}
-              onChange={(event) => update("content", event.target.value)}
-            />
-          </label>
-          <label className="trace-full-width">
-            <span>Operator notes optional</span>
-            <textarea rows={3} value={form.notes ?? ""} onChange={(event) => update("notes", event.target.value)} />
-          </label>
-        </fieldset>
+          {isResourceGuidedMode ? (
+            <fieldset>
+              <legend>Resource assignment guided form</legend>
+              <div className="trace-guidance-card trace-full-width">
+                <strong>Where to get this evidence</strong>
+                <p>Use Entra sign-in logs for authentication/MFA/Conditional Access, the ticket or resource owner for expected access, and SharePoint/M365/AD/app assignment views for membership evidence.</p>
+              </div>
+              <label>
+                <span>Timestamp / time window</span>
+                <input value={resourceGuide.timestamp} onChange={(event) => updateResourceGuide("timestamp", event.target.value)} />
+              </label>
+              <label>
+                <span>Application</span>
+                <input value={resourceGuide.application} onChange={(event) => updateResourceGuide("application", event.target.value)} />
+              </label>
+              <label>
+                <span>Sign-in result</span>
+                <select value={resourceGuide.authenticationOutcome} onChange={(event) => updateResourceGuide("authenticationOutcome", event.target.value as OutcomeEvidence)}>
+                  <option value="success">Succeeded</option>
+                  <option value="failure">Failed</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
+              </label>
+              <label>
+                <span>MFA result</span>
+                <select value={resourceGuide.mfaResult} onChange={(event) => updateResourceGuide("mfaResult", event.target.value as MfaEvidence)}>
+                  <option value="satisfied">Satisfied</option>
+                  <option value="required">Required / pending</option>
+                  <option value="failure">Failed</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
+              </label>
+              <label>
+                <span>Conditional Access result</span>
+                <select value={resourceGuide.conditionalAccessStatus} onChange={(event) => updateResourceGuide("conditionalAccessStatus", event.target.value as ConditionalAccessEvidence)}>
+                  <option value="success">Success / not blocking</option>
+                  <option value="failure">Failure / blocking</option>
+                  <option value="notApplied">Not applied</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
+              </label>
+              <label>
+                <span>Assignment / membership status</span>
+                <select value={resourceGuide.assignmentPresent} onChange={(event) => updateResourceGuide("assignmentPresent", event.target.value as TernaryEvidence)}>
+                  <option value="false">Missing / not a member</option>
+                  <option value="true">Present / member</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
+              </label>
+              <label>
+                <span>Access expected / approved</span>
+                <select value={resourceGuide.expectedAccessConfirmed} onChange={(event) => updateResourceGuide("expectedAccessConfirmed", event.target.value as TernaryEvidence)}>
+                  <option value="true">Yes, expected access confirmed</option>
+                  <option value="false">No, access not confirmed</option>
+                  <option value="unknown">Unknown / not checked</option>
+                </select>
+              </label>
+              <label className="trace-full-width">
+                <span>Failure observed by user</span>
+                <textarea rows={3} value={resourceGuide.failureReason} onChange={(event) => updateResourceGuide("failureReason", event.target.value)} />
+              </label>
+              <label className="trace-full-width">
+                <span>Evidence checked, one item per line</span>
+                <textarea rows={5} value={resourceGuide.evidenceChecked} onChange={(event) => updateResourceGuide("evidenceChecked", event.target.value)} />
+              </label>
+            </fieldset>
+          ) : (
+            <fieldset>
+              <legend>Evidence content</legend>
+              <label className="trace-full-width">
+                <span>Paste redacted evidence</span>
+                <textarea rows={12} value={form.content} onChange={(event) => update("content", event.target.value)} />
+              </label>
+            </fieldset>
+          )}
 
-        <div className="trace-check-row" aria-label="What TRACE checks">
-          <span>Collect evidence</span>
-          <span>Generate structure</span>
-          <span>Normalize events</span>
-          <span>Detect access pattern</span>
-          <span>Show safe next steps</span>
-        </div>
+          <fieldset>
+            <legend>Operator context</legend>
+            <label className="trace-full-width">
+              <span>Operator notes optional</span>
+              <textarea rows={3} value={form.notes ?? ""} onChange={(event) => update("notes", event.target.value)} />
+            </label>
+          </fieldset>
 
-        <div className="trace-form-footer">
-          <p>TRACE keeps this workflow read-only. It helps structure a ticket; it does not modify users, groups, policies, resources, or permissions.</p>
-          <button className="trace-primary-button" type="submit" disabled={running || (!isResourceGuidedMode && !form.content.trim())}>{running ? "Analyzing..." : "Analyze evidence"}</button>
-        </div>
-      </form>
+          <div className="trace-form-footer">
+            <p>TRACE helps structure a ticket. It does not modify users, groups, policies, resources, or permissions.</p>
+            <button className="trace-primary-button" type="submit" disabled={running || !submittedEvidence.trim()}>{running ? "Analyzing..." : "Analyze evidence"}</button>
+          </div>
+        </form>
+
+        <aside className="trace-preview-card" aria-label="Structured evidence preview">
+          <div className="trace-preview-heading">
+            <div>
+              <span className="trace-eyebrow">Analyzer input</span>
+              <h2>{isResourceGuidedMode ? "Generated structured evidence" : "Submitted evidence"}</h2>
+            </div>
+            <button className="trace-secondary-button" type="button" onClick={copyStructuredEvidence}>{isResourceGuidedMode ? "Copy JSON" : "Copy evidence"}</button>
+          </div>
+          <pre className="trace-structured-preview">{submittedEvidence || "No evidence provided yet."}</pre>
+          <p className="trace-muted">This is the exact evidence TRACE sends to the analyzer. In guided mode, the JSON is generated from the technician's answers.</p>
+        </aside>
+      </div>
     </section>
   );
 }
