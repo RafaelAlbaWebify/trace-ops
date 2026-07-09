@@ -45,6 +45,24 @@ def test_auth_success_then_resource_denied_returns_authorization_pattern():
     assert "LOG_PATTERN_AUTH_SUCCESS_ACCESS_DENIED" in rule_ids
 
 
+def test_license_or_service_plan_missing_returns_license_pattern():
+    request = LogAnalyzeRequest(
+        affected_user="sample.user@contoso.invalid",
+        affected_service="Exchange Online",
+        content="""
+2026-07-07T09:20:00Z user=sample.user@contoso.invalid app="Microsoft 365" result=success
+2026-07-07T09:21:00Z user=sample.user@contoso.invalid app="Exchange Online" result=failure reason="not licensed service plan disabled"
+""",
+    )
+
+    analysis = analyze_log_evidence(request)
+    rule_ids = {finding["rule_id"] for finding in analysis.findings}
+
+    assert "LOG_PATTERN_LICENSE_OR_SERVICE_PLAN_MISSING" in rule_ids
+    assert analysis.primary_finding is not None
+    assert analysis.primary_finding["rule_id"] == "LOG_PATTERN_LICENSE_OR_SERVICE_PLAN_MISSING"
+
+
 def test_no_usable_events_returns_insufficient_evidence():
     analysis = analyze_log_evidence(LogAnalyzeRequest(content="hello this is not a log"))
 
