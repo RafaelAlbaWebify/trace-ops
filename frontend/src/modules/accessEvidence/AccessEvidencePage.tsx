@@ -5,7 +5,7 @@ type AccessEvidencePageProps = {
   onResult: (result: StandardDiagnosticResult) => void;
 };
 
-type EvidenceMode = AccessEvidenceInput["sourceType"] | "entra_signin_guided_form" | "license_service_plan_guided_form";
+type EvidenceMode = AccessEvidenceInput["sourceType"] | "entra_signin_guided_form" | "license_service_plan_guided_form" | "guest_b2b_guided_form";
 type TernaryEvidence = "true" | "false" | "unknown";
 type OutcomeEvidence = "success" | "failure" | "unknown";
 type ConditionalAccessEvidence = "success" | "failure" | "notApplied" | "unknown";
@@ -47,6 +47,19 @@ type LicenseServicePlanGuide = {
   servicePlanEnabled: TernaryEvidence;
   licensingSource: string;
   recentChange: TernaryEvidence;
+  failureReason: string;
+};
+
+type GuestB2BGuide = {
+  timestamp: string;
+  application: string;
+  resource: string;
+  partnerTenant: string;
+  invitationRedeemed: TernaryEvidence;
+  externalUserObjectPresent: TernaryEvidence;
+  crossTenantAccessAllowed: TernaryEvidence;
+  tenantRestrictionsObserved: TernaryEvidence;
+  resourceAssignmentPresent: TernaryEvidence;
   failureReason: string;
 };
 
@@ -95,6 +108,19 @@ const defaultLicenseGuide: LicenseServicePlanGuide = {
   failureReason: "User is not licensed for Exchange Online or the required service plan is disabled."
 };
 
+const defaultGuestGuide: GuestB2BGuide = {
+  timestamp: "2026-07-07T12:15:00Z",
+  application: "SharePoint Online",
+  resource: "Partner SharePoint Site",
+  partnerTenant: "partner.invalid",
+  invitationRedeemed: "false",
+  externalUserObjectPresent: "true",
+  crossTenantAccessAllowed: "unknown",
+  tenantRestrictionsObserved: "true",
+  resourceAssignmentPresent: "false",
+  failureReason: "Guest user cannot open the partner resource; invitation not redeemed and tenant restrictions may apply."
+};
+
 function ternaryToBoolean(value: TernaryEvidence): boolean | undefined {
   if (value === "true") return true;
   if (value === "false") return false;
@@ -115,6 +141,12 @@ function csvEscape(value: string | undefined): string {
 
 function buildCsv(headers: string[], values: string[]): string {
   return `${headers.join(",")}\n${values.map(csvEscape).join(",")}`;
+}
+
+function evidenceFlag(label: string, value: TernaryEvidence): string {
+  if (value === "true") return `${label}=confirmed`;
+  if (value === "false") return `${label}=not_confirmed`;
+  return `${label}=unknown`;
 }
 
 function buildResourceAssignmentJson(form: AccessEvidenceInput, guide: ResourceAssignmentGuide): string {
@@ -179,6 +211,22 @@ function buildLicenseServicePlanEvidence(form: AccessEvidenceInput, guide: Licen
   ].join("\n");
 }
 
+function buildGuestB2BEvidence(form: AccessEvidenceInput, guide: GuestB2BGuide): string {
+  const user = form.affectedUser || "guest.user@partner.invalid";
+  const resource = guide.resource || form.affectedService || guide.application;
+  const checks = [
+    evidenceFlag("invitation_redeemed", guide.invitationRedeemed),
+    evidenceFlag("external_user_object", guide.externalUserObjectPresent),
+    evidenceFlag("cross_tenant_access_allowed", guide.crossTenantAccessAllowed),
+    evidenceFlag("tenant_restrictions", guide.tenantRestrictionsObserved),
+    evidenceFlag("guest_resource_assignment", guide.resourceAssignmentPresent)
+  ].join("; ");
+  return [
+    `${guide.timestamp} user=${user} app="Microsoft 365" result=success reason="guest user sign-in succeeded for b2b external user" partner_tenant="${guide.partnerTenant}"`,
+    `${guide.timestamp} user=${user} app="${guide.application}" resource="${resource}" result=failure reason="${guide.failureReason} guest user b2b external user invitation not redeemed cross-tenant access tenant restrictions guest not assigned" partner_tenant="${guide.partnerTenant}" checks="${checks}"`
+  ].join("\n");
+}
+
 const examples: Record<AccessEvidenceInput["sourceType"], string> = {
   generic_access_log_text: '2026-07-07T09:22:11Z user=sample.user@contoso.invalid app="SharePoint Online" result=failure reason="blocked by ca policy"',
   entra_signin_csv: `createdDateTime,userPrincipalName,appDisplayName,resourceDisplayName,clientAppUsed,conditionalAccessStatus,authenticationRequirement,status.errorCode,status.failureReason
@@ -189,6 +237,7 @@ const examples: Record<AccessEvidenceInput["sourceType"], string> = {
 function sourceTypeForMode(mode: EvidenceMode): AccessEvidenceInput["sourceType"] {
   if (mode === "entra_signin_guided_form") return "entra_signin_csv";
   if (mode === "license_service_plan_guided_form") return "generic_access_log_text";
+  if (mode === "guest_b2b_guided_form") return "generic_access_log_text";
   return mode;
 }
 
@@ -198,6 +247,7 @@ function modeLabel(mode: EvidenceMode): string {
     entra_signin_csv: "Entra sign-in CSV",
     entra_signin_guided_form: "Conditional Access / MFA guided form",
     license_service_plan_guided_form: "License / Service Plan guided form",
+    guest_b2b_guided_form: "Guest / B2B guided form",
     resource_assignment_json: "Resource assignment guided form"
   };
   return labels[mode];
@@ -224,6 +274,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
   const [resourceGuide, setResourceGuide] = useState<ResourceAssignmentGuide>(defaultResourceGuide);
   const [entraGuide, setEntraGuide] = useState<EntraGuidedForm>(defaultEntraGuide);
   const [licenseGuide, setLicenseGuide] = useState<LicenseServicePlanGuide>(defaultLicenseGuide);
+  const [guestGuide, setGuestGuide] = useState<GuestB2BGuide>(defaultGuestGuide);
   const [form, setForm] = useState<AccessEvidenceInput>({
     sourceType: "generic_access_log_text",
     affectedUser: "sample.user@contoso.invalid",
@@ -236,10 +287,12 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
   const generatedResourceJson = buildResourceAssignmentJson(form, resourceGuide);
   const generatedEntraCsv = buildEntraGuidedCsv(form, entraGuide);
   const generatedLicenseEvidence = buildLicenseServicePlanEvidence(form, licenseGuide);
+  const generatedGuestEvidence = buildGuestB2BEvidence(form, guestGuide);
   const isResourceGuidedMode = mode === "resource_assignment_json";
   const isEntraGuidedMode = mode === "entra_signin_guided_form";
   const isLicenseGuidedMode = mode === "license_service_plan_guided_form";
-  const submittedEvidence = isResourceGuidedMode ? generatedResourceJson : isEntraGuidedMode ? generatedEntraCsv : isLicenseGuidedMode ? generatedLicenseEvidence : form.content;
+  const isGuestGuidedMode = mode === "guest_b2b_guided_form";
+  const submittedEvidence = isResourceGuidedMode ? generatedResourceJson : isEntraGuidedMode ? generatedEntraCsv : isLicenseGuidedMode ? generatedLicenseEvidence : isGuestGuidedMode ? generatedGuestEvidence : form.content;
 
   function update<K extends keyof AccessEvidenceInput>(key: K, value: AccessEvidenceInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -257,6 +310,10 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
     setLicenseGuide((current) => ({ ...current, [key]: value }));
   }
 
+  function updateGuestGuide<K extends keyof GuestB2BGuide>(key: K, value: GuestB2BGuide[K]) {
+    setGuestGuide((current) => ({ ...current, [key]: value }));
+  }
+
   function useExample(nextMode: EvidenceMode) {
     setMode(nextMode);
     setForm((current) => {
@@ -270,8 +327,17 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
             ? buildEntraGuidedCsv(current, entraGuide)
             : nextMode === "license_service_plan_guided_form"
               ? buildLicenseServicePlanEvidence(current, licenseGuide)
-              : examples[nextSourceType],
-        affectedService: nextMode === "resource_assignment_json" ? "Engineering SharePoint Site" : nextMode === "license_service_plan_guided_form" ? licenseGuide.application : current.affectedService
+              : nextMode === "guest_b2b_guided_form"
+                ? buildGuestB2BEvidence(current, guestGuide)
+                : examples[nextSourceType],
+        affectedService: nextMode === "resource_assignment_json"
+          ? "Engineering SharePoint Site"
+          : nextMode === "license_service_plan_guided_form"
+            ? licenseGuide.application
+            : nextMode === "guest_b2b_guided_form"
+              ? guestGuide.resource
+              : current.affectedService,
+        affectedUser: nextMode === "guest_b2b_guided_form" ? "guest.user@partner.invalid" : current.affectedUser
       };
     });
     onResult(emptyAccessResult(nextMode));
@@ -327,234 +393,89 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                 <option value="entra_signin_csv">Entra sign-in CSV</option>
                 <option value="entra_signin_guided_form">Conditional Access / MFA guided form</option>
                 <option value="license_service_plan_guided_form">License / Service Plan guided form</option>
+                <option value="guest_b2b_guided_form">Guest / B2B guided form</option>
                 <option value="resource_assignment_json">Resource assignment guided form</option>
               </select>
             </label>
-            <label>
-              <span>Affected user</span>
-              <input value={form.affectedUser ?? ""} onChange={(event) => update("affectedUser", event.target.value)} />
-            </label>
-            <label>
-              <span>Affected service/resource</span>
-              <input value={form.affectedService ?? ""} onChange={(event) => update("affectedService", event.target.value)} />
-            </label>
+            <label><span>Affected user</span><input value={form.affectedUser ?? ""} onChange={(event) => update("affectedUser", event.target.value)} /></label>
+            <label><span>Affected service/resource</span><input value={form.affectedService ?? ""} onChange={(event) => update("affectedService", event.target.value)} /></label>
           </fieldset>
 
           {isEntraGuidedMode ? (
             <fieldset>
               <legend>Conditional Access / MFA guided form</legend>
-              <div className="trace-guidance-card trace-full-width">
-                <strong>Use this when sign-in evidence points to MFA, Conditional Access, client app, or device compliance</strong>
-                <p>TRACE will generate a redacted Entra sign-in CSV row from these fields and analyze it with the existing Entra export analyzer.</p>
-              </div>
-              <div className="trace-guidance-card trace-full-width">
-                <strong>Evidence helper</strong>
-                <ul>
-                  <li><strong>Same event:</strong> Use one sign-in event for the affected user, app, resource, and time window.</li>
-                  <li><strong>Conditional Access:</strong> Record the policy result and failure reason, but do not exclude users or disable policy from this evidence alone.</li>
-                  <li><strong>MFA:</strong> Use the sign-in detail value, not the user description of the prompt.</li>
-                  <li><strong>Client/device:</strong> Keep client app and device compliance because they often explain policy decisions.</li>
-                </ul>
-              </div>
+              <div className="trace-guidance-card trace-full-width"><strong>Use this when sign-in evidence points to MFA, Conditional Access, client app, or device compliance</strong><p>TRACE will generate a redacted Entra sign-in CSV row from these fields and analyze it with the existing Entra export analyzer.</p></div>
+              <div className="trace-guidance-card trace-full-width"><strong>Evidence helper</strong><ul><li><strong>Same event:</strong> Use one sign-in event for the affected user, app, resource, and time window.</li><li><strong>Conditional Access:</strong> Record the policy result and failure reason, but do not exclude users or disable policy from this evidence alone.</li><li><strong>MFA:</strong> Use the sign-in detail value, not the user description of the prompt.</li><li><strong>Client/device:</strong> Keep client app and device compliance because they often explain policy decisions.</li></ul></div>
               <label><span>Timestamp / time window</span><input value={entraGuide.timestamp} onChange={(event) => updateEntraGuide("timestamp", event.target.value)} /></label>
               <label><span>Application</span><input value={entraGuide.application} onChange={(event) => updateEntraGuide("application", event.target.value)} /></label>
               <label><span>Resource</span><input value={entraGuide.resource} onChange={(event) => updateEntraGuide("resource", event.target.value)} /></label>
-              <label>
-                <span>Client app</span>
-                <select value={entraGuide.clientApp} onChange={(event) => updateEntraGuide("clientApp", event.target.value)}>
-                  <option value="Browser">Browser</option>
-                  <option value="Mobile Apps and Desktop clients">Mobile Apps and Desktop clients</option>
-                  <option value="Other clients">Other clients</option>
-                  <option value="IMAP">IMAP</option>
-                  <option value="POP">POP</option>
-                  <option value="SMTP">SMTP</option>
-                </select>
-              </label>
-              <label>
-                <span>Sign-in status</span>
-                <select value={entraGuide.status} onChange={(event) => updateEntraGuide("status", event.target.value)}>
-                  <option value="failure">Failure</option>
-                  <option value="success">Success</option>
-                  <option value="interrupted">Interrupted</option>
-                </select>
-              </label>
-              <label>
-                <span>Conditional Access result</span>
-                <select value={entraGuide.conditionalAccessStatus} onChange={(event) => updateEntraGuide("conditionalAccessStatus", event.target.value as ConditionalAccessEvidence)}>
-                  <option value="failure">Failure / blocking</option>
-                  <option value="success">Success / not blocking</option>
-                  <option value="notApplied">Not applied</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
-              <label>
-                <span>Authentication requirement</span>
-                <select value={entraGuide.authenticationRequirement} onChange={(event) => updateEntraGuide("authenticationRequirement", event.target.value)}>
-                  <option value="multiFactorAuthentication">multiFactorAuthentication</option>
-                  <option value="singleFactorAuthentication">singleFactorAuthentication</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
+              <label><span>Client app</span><select value={entraGuide.clientApp} onChange={(event) => updateEntraGuide("clientApp", event.target.value)}><option value="Browser">Browser</option><option value="Mobile Apps and Desktop clients">Mobile Apps and Desktop clients</option><option value="Other clients">Other clients</option><option value="IMAP">IMAP</option><option value="POP">POP</option><option value="SMTP">SMTP</option></select></label>
+              <label><span>Sign-in status</span><select value={entraGuide.status} onChange={(event) => updateEntraGuide("status", event.target.value)}><option value="failure">Failure</option><option value="success">Success</option><option value="interrupted">Interrupted</option></select></label>
+              <label><span>Conditional Access result</span><select value={entraGuide.conditionalAccessStatus} onChange={(event) => updateEntraGuide("conditionalAccessStatus", event.target.value as ConditionalAccessEvidence)}><option value="failure">Failure / blocking</option><option value="success">Success / not blocking</option><option value="notApplied">Not applied</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>Authentication requirement</span><select value={entraGuide.authenticationRequirement} onChange={(event) => updateEntraGuide("authenticationRequirement", event.target.value)}><option value="multiFactorAuthentication">multiFactorAuthentication</option><option value="singleFactorAuthentication">singleFactorAuthentication</option><option value="unknown">Unknown / not checked</option></select></label>
               <label><span>Error code</span><input value={entraGuide.statusErrorCode} onChange={(event) => updateEntraGuide("statusErrorCode", event.target.value)} /></label>
-              <label>
-                <span>Device compliant</span>
-                <select value={entraGuide.deviceCompliance} onChange={(event) => updateEntraGuide("deviceCompliance", event.target.value)}>
-                  <option value="false">False</option>
-                  <option value="true">True</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
+              <label><span>Device compliant</span><select value={entraGuide.deviceCompliance} onChange={(event) => updateEntraGuide("deviceCompliance", event.target.value)}><option value="false">False</option><option value="true">True</option><option value="unknown">Unknown / not checked</option></select></label>
               <label><span>IP address redacted/sample</span><input value={entraGuide.ipAddress} onChange={(event) => updateEntraGuide("ipAddress", event.target.value)} /></label>
               <label className="trace-full-width"><span>Failure reason</span><textarea rows={3} value={entraGuide.failureReason} onChange={(event) => updateEntraGuide("failureReason", event.target.value)} /></label>
             </fieldset>
           ) : isLicenseGuidedMode ? (
             <fieldset>
               <legend>License / Service Plan guided form</legend>
-              <div className="trace-guidance-card trace-full-width">
-                <strong>Use this when authentication works but the service says the user is not licensed</strong>
-                <p>TRACE generates redacted access evidence and checks for license or service-plan symptoms without changing assignments.</p>
-              </div>
-              <div className="trace-guidance-card trace-full-width">
-                <strong>Evidence helper</strong>
-                <ul>
-                  <li><strong>License SKU:</strong> Confirm the expected product SKU and whether assignment is direct or group-based.</li>
-                  <li><strong>Service plan:</strong> Check whether the specific service plan is enabled, not only whether a product license exists.</li>
-                  <li><strong>Propagation:</strong> Check recent license changes before removing/reassigning licenses.</li>
-                  <li><strong>Comparison:</strong> Compare with a known-good user who can access the same service.</li>
-                </ul>
-              </div>
+              <div className="trace-guidance-card trace-full-width"><strong>Use this when authentication works but the service says the user is not licensed</strong><p>TRACE generates redacted access evidence and checks for license or service-plan symptoms without changing assignments.</p></div>
+              <div className="trace-guidance-card trace-full-width"><strong>Evidence helper</strong><ul><li><strong>License SKU:</strong> Confirm the expected product SKU and whether assignment is direct or group-based.</li><li><strong>Service plan:</strong> Check whether the specific service plan is enabled, not only whether a product license exists.</li><li><strong>Propagation:</strong> Check recent license changes before removing/reassigning licenses.</li><li><strong>Comparison:</strong> Compare with a known-good user who can access the same service.</li></ul></div>
               <label><span>Timestamp / time window</span><input value={licenseGuide.timestamp} onChange={(event) => updateLicenseGuide("timestamp", event.target.value)} /></label>
               <label><span>Application</span><input value={licenseGuide.application} onChange={(event) => updateLicenseGuide("application", event.target.value)} /></label>
               <label><span>Resource</span><input value={licenseGuide.resource} onChange={(event) => updateLicenseGuide("resource", event.target.value)} /></label>
               <label><span>License SKU</span><input value={licenseGuide.sku} onChange={(event) => updateLicenseGuide("sku", event.target.value)} /></label>
               <label><span>Service plan</span><input value={licenseGuide.servicePlan} onChange={(event) => updateLicenseGuide("servicePlan", event.target.value)} /></label>
-              <label>
-                <span>License assigned</span>
-                <select value={licenseGuide.licenseAssigned} onChange={(event) => updateLicenseGuide("licenseAssigned", event.target.value as TernaryEvidence)}>
-                  <option value="false">No / missing</option>
-                  <option value="true">Yes</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
-              <label>
-                <span>Service plan enabled</span>
-                <select value={licenseGuide.servicePlanEnabled} onChange={(event) => updateLicenseGuide("servicePlanEnabled", event.target.value as TernaryEvidence)}>
-                  <option value="false">No / disabled</option>
-                  <option value="true">Yes</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
-              <label>
-                <span>Licensing source</span>
-                <select value={licenseGuide.licensingSource} onChange={(event) => updateLicenseGuide("licensingSource", event.target.value)}>
-                  <option value="group-based licensing">Group-based licensing</option>
-                  <option value="direct assignment">Direct assignment</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
-              <label>
-                <span>Recent license change</span>
-                <select value={licenseGuide.recentChange} onChange={(event) => updateLicenseGuide("recentChange", event.target.value as TernaryEvidence)}>
-                  <option value="unknown">Unknown / not checked</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              </label>
+              <label><span>License assigned</span><select value={licenseGuide.licenseAssigned} onChange={(event) => updateLicenseGuide("licenseAssigned", event.target.value as TernaryEvidence)}><option value="false">No / missing</option><option value="true">Yes</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>Service plan enabled</span><select value={licenseGuide.servicePlanEnabled} onChange={(event) => updateLicenseGuide("servicePlanEnabled", event.target.value as TernaryEvidence)}><option value="false">No / disabled</option><option value="true">Yes</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>Licensing source</span><select value={licenseGuide.licensingSource} onChange={(event) => updateLicenseGuide("licensingSource", event.target.value)}><option value="group-based licensing">Group-based licensing</option><option value="direct assignment">Direct assignment</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>Recent license change</span><select value={licenseGuide.recentChange} onChange={(event) => updateLicenseGuide("recentChange", event.target.value as TernaryEvidence)}><option value="unknown">Unknown / not checked</option><option value="true">Yes</option><option value="false">No</option></select></label>
               <label className="trace-full-width"><span>Observed failure / portal message</span><textarea rows={3} value={licenseGuide.failureReason} onChange={(event) => updateLicenseGuide("failureReason", event.target.value)} /></label>
+            </fieldset>
+          ) : isGuestGuidedMode ? (
+            <fieldset>
+              <legend>Guest / B2B guided form</legend>
+              <div className="trace-guidance-card trace-full-width"><strong>Use this for external users, partner tenants, and invitation-based access</strong><p>TRACE generates redacted evidence for guest/B2B access symptoms while keeping tenant-policy and resource-assignment checks separate.</p></div>
+              <div className="trace-guidance-card trace-full-width"><strong>Evidence helper</strong><ul><li><strong>Invitation:</strong> Confirm whether the guest invitation was redeemed.</li><li><strong>External object:</strong> Confirm the guest object exists in the resource tenant.</li><li><strong>Tenant policy:</strong> Check cross-tenant access settings and tenant restrictions with the appropriate owner.</li><li><strong>Assignment:</strong> Confirm the guest has the expected group, app, site, or access package assignment.</li></ul></div>
+              <label><span>Timestamp / time window</span><input value={guestGuide.timestamp} onChange={(event) => updateGuestGuide("timestamp", event.target.value)} /></label>
+              <label><span>Application</span><input value={guestGuide.application} onChange={(event) => updateGuestGuide("application", event.target.value)} /></label>
+              <label><span>Resource</span><input value={guestGuide.resource} onChange={(event) => updateGuestGuide("resource", event.target.value)} /></label>
+              <label><span>Partner tenant</span><input value={guestGuide.partnerTenant} onChange={(event) => updateGuestGuide("partnerTenant", event.target.value)} /></label>
+              <label><span>Invitation redeemed</span><select value={guestGuide.invitationRedeemed} onChange={(event) => updateGuestGuide("invitationRedeemed", event.target.value as TernaryEvidence)}><option value="false">No / pending</option><option value="true">Yes</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>External user object present</span><select value={guestGuide.externalUserObjectPresent} onChange={(event) => updateGuestGuide("externalUserObjectPresent", event.target.value as TernaryEvidence)}><option value="true">Yes</option><option value="false">No</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>Cross-tenant access allowed</span><select value={guestGuide.crossTenantAccessAllowed} onChange={(event) => updateGuestGuide("crossTenantAccessAllowed", event.target.value as TernaryEvidence)}><option value="unknown">Unknown / not checked</option><option value="true">Yes</option><option value="false">No / blocked</option></select></label>
+              <label><span>Tenant restrictions observed</span><select value={guestGuide.tenantRestrictionsObserved} onChange={(event) => updateGuestGuide("tenantRestrictionsObserved", event.target.value as TernaryEvidence)}><option value="true">Yes</option><option value="false">No</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>Guest resource assignment</span><select value={guestGuide.resourceAssignmentPresent} onChange={(event) => updateGuestGuide("resourceAssignmentPresent", event.target.value as TernaryEvidence)}><option value="false">Missing / not assigned</option><option value="true">Present</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label className="trace-full-width"><span>Observed failure / portal message</span><textarea rows={3} value={guestGuide.failureReason} onChange={(event) => updateGuestGuide("failureReason", event.target.value)} /></label>
             </fieldset>
           ) : isResourceGuidedMode ? (
             <fieldset>
               <legend>Resource assignment guided form</legend>
-              <div className="trace-guidance-card trace-full-width">
-                <strong>Use this when authentication worked but access still fails</strong>
-                <p>Collect enough evidence to separate sign-in, MFA, Conditional Access, expected access, and resource membership before recommending any change.</p>
-              </div>
-              <div className="trace-guidance-card trace-full-width">
-                <strong>Evidence helper</strong>
-                <ul>
-                  <li><strong>Authentication:</strong> Check the Entra sign-in result for the same user, application, and timestamp.</li>
-                  <li><strong>MFA / Conditional Access:</strong> Use sign-in details, status, error code, and failure reason before changing policies.</li>
-                  <li><strong>Assignment:</strong> Check the actual access path: SharePoint/M365 membership, AD group, or app assignment.</li>
-                  <li><strong>Expected access:</strong> Confirm with ticket, owner, manager, or access request before recommending membership changes.</li>
-                  <li><strong>Observed failure:</strong> Capture exact redacted error text, resource name, and time window. Do not paste secrets.</li>
-                </ul>
-              </div>
+              <div className="trace-guidance-card trace-full-width"><strong>Use this when authentication worked but access still fails</strong><p>Collect enough evidence to separate sign-in, MFA, Conditional Access, expected access, and resource membership before recommending any change.</p></div>
+              <div className="trace-guidance-card trace-full-width"><strong>Evidence helper</strong><ul><li><strong>Authentication:</strong> Check the Entra sign-in result for the same user, application, and timestamp.</li><li><strong>MFA / Conditional Access:</strong> Use sign-in details, status, error code, and failure reason before changing policies.</li><li><strong>Assignment:</strong> Check the actual access path: SharePoint/M365 membership, AD group, or app assignment.</li><li><strong>Expected access:</strong> Confirm with ticket, owner, manager, or access request before recommending membership changes.</li><li><strong>Observed failure:</strong> Capture exact redacted error text, resource name, and time window. Do not paste secrets.</li></ul></div>
               <label><span>Timestamp / time window</span><input value={resourceGuide.timestamp} onChange={(event) => updateResourceGuide("timestamp", event.target.value)} /></label>
               <label><span>Application</span><input value={resourceGuide.application} onChange={(event) => updateResourceGuide("application", event.target.value)} /></label>
-              <label>
-                <span>Sign-in result</span>
-                <select value={resourceGuide.authenticationOutcome} onChange={(event) => updateResourceGuide("authenticationOutcome", event.target.value as OutcomeEvidence)}>
-                  <option value="success">Succeeded</option>
-                  <option value="failure">Failed</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
-              <label>
-                <span>MFA result</span>
-                <select value={resourceGuide.mfaResult} onChange={(event) => updateResourceGuide("mfaResult", event.target.value as MfaEvidence)}>
-                  <option value="satisfied">Satisfied</option>
-                  <option value="required">Required / pending</option>
-                  <option value="failure">Failed</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
-              <label>
-                <span>Conditional Access result</span>
-                <select value={resourceGuide.conditionalAccessStatus} onChange={(event) => updateResourceGuide("conditionalAccessStatus", event.target.value as ConditionalAccessEvidence)}>
-                  <option value="success">Success / not blocking</option>
-                  <option value="failure">Failure / blocking</option>
-                  <option value="notApplied">Not applied</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
-              <label>
-                <span>Assignment / membership status</span>
-                <select value={resourceGuide.assignmentPresent} onChange={(event) => updateResourceGuide("assignmentPresent", event.target.value as TernaryEvidence)}>
-                  <option value="false">Missing / not a member</option>
-                  <option value="true">Present / member</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
-              <label>
-                <span>Access expected / approved</span>
-                <select value={resourceGuide.expectedAccessConfirmed} onChange={(event) => updateResourceGuide("expectedAccessConfirmed", event.target.value as TernaryEvidence)}>
-                  <option value="true">Yes, expected access confirmed</option>
-                  <option value="false">No, access not confirmed</option>
-                  <option value="unknown">Unknown / not checked</option>
-                </select>
-              </label>
+              <label><span>Sign-in result</span><select value={resourceGuide.authenticationOutcome} onChange={(event) => updateResourceGuide("authenticationOutcome", event.target.value as OutcomeEvidence)}><option value="success">Succeeded</option><option value="failure">Failed</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>MFA result</span><select value={resourceGuide.mfaResult} onChange={(event) => updateResourceGuide("mfaResult", event.target.value as MfaEvidence)}><option value="satisfied">Satisfied</option><option value="required">Required / pending</option><option value="failure">Failed</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>Conditional Access result</span><select value={resourceGuide.conditionalAccessStatus} onChange={(event) => updateResourceGuide("conditionalAccessStatus", event.target.value as ConditionalAccessEvidence)}><option value="success">Success / not blocking</option><option value="failure">Failure / blocking</option><option value="notApplied">Not applied</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>Assignment / membership status</span><select value={resourceGuide.assignmentPresent} onChange={(event) => updateResourceGuide("assignmentPresent", event.target.value as TernaryEvidence)}><option value="false">Missing / not a member</option><option value="true">Present / member</option><option value="unknown">Unknown / not checked</option></select></label>
+              <label><span>Access expected / approved</span><select value={resourceGuide.expectedAccessConfirmed} onChange={(event) => updateResourceGuide("expectedAccessConfirmed", event.target.value as TernaryEvidence)}><option value="true">Yes, expected access confirmed</option><option value="false">No, access not confirmed</option><option value="unknown">Unknown / not checked</option></select></label>
               <label className="trace-full-width"><span>Failure observed by user</span><textarea rows={3} value={resourceGuide.failureReason} onChange={(event) => updateResourceGuide("failureReason", event.target.value)} /></label>
               <label className="trace-full-width"><span>Evidence checked, one item per line</span><textarea rows={5} value={resourceGuide.evidenceChecked} onChange={(event) => updateResourceGuide("evidenceChecked", event.target.value)} /></label>
             </fieldset>
           ) : (
-            <fieldset>
-              <legend>Evidence content</legend>
-              <label className="trace-full-width">
-                <span>Paste redacted evidence</span>
-                <textarea rows={12} value={form.content} onChange={(event) => update("content", event.target.value)} />
-              </label>
-            </fieldset>
+            <fieldset><legend>Evidence content</legend><label className="trace-full-width"><span>Paste redacted evidence</span><textarea rows={12} value={form.content} onChange={(event) => update("content", event.target.value)} /></label></fieldset>
           )}
 
-          <fieldset>
-            <legend>Operator context</legend>
-            <label className="trace-full-width"><span>Operator notes optional</span><textarea rows={3} value={form.notes ?? ""} onChange={(event) => update("notes", event.target.value)} /></label>
-          </fieldset>
+          <fieldset><legend>Operator context</legend><label className="trace-full-width"><span>Operator notes optional</span><textarea rows={3} value={form.notes ?? ""} onChange={(event) => update("notes", event.target.value)} /></label></fieldset>
 
-          <div className="trace-form-footer">
-            <p>TRACE helps structure a ticket. It does not modify users, groups, policies, resources, or permissions.</p>
-            <button className="trace-primary-button" type="submit" disabled={running || !submittedEvidence.trim()}>{running ? "Analyzing..." : "Analyze evidence"}</button>
-          </div>
+          <div className="trace-form-footer"><p>TRACE helps structure a ticket. It does not modify users, groups, policies, resources, or permissions.</p><button className="trace-primary-button" type="submit" disabled={running || !submittedEvidence.trim()}>{running ? "Analyzing..." : "Analyze evidence"}</button></div>
         </form>
 
         <aside className="trace-preview-card" aria-label="Structured evidence preview">
-          <div className="trace-preview-heading">
-            <div>
-              <span className="trace-eyebrow">Analyzer input</span>
-              <h2>{isResourceGuidedMode ? "Generated structured evidence" : isEntraGuidedMode ? "Generated Entra sign-in CSV" : isLicenseGuidedMode ? "Generated license evidence" : "Submitted evidence"}</h2>
-            </div>
-            <button className="trace-secondary-button" type="button" onClick={copyStructuredEvidence}>{isResourceGuidedMode ? "Copy JSON" : isEntraGuidedMode ? "Copy CSV" : "Copy evidence"}</button>
-          </div>
+          <div className="trace-preview-heading"><div><span className="trace-eyebrow">Analyzer input</span><h2>{isResourceGuidedMode ? "Generated structured evidence" : isEntraGuidedMode ? "Generated Entra sign-in CSV" : isLicenseGuidedMode ? "Generated license evidence" : isGuestGuidedMode ? "Generated guest/B2B evidence" : "Submitted evidence"}</h2></div><button className="trace-secondary-button" type="button" onClick={copyStructuredEvidence}>{isResourceGuidedMode ? "Copy JSON" : isEntraGuidedMode ? "Copy CSV" : "Copy evidence"}</button></div>
           <pre className="trace-structured-preview">{submittedEvidence || "No evidence provided yet."}</pre>
           <p className="trace-muted">This is the exact evidence TRACE sends to the analyzer. Guided modes generate structured evidence from the technician's answers.</p>
         </aside>
