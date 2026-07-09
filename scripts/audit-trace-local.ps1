@@ -17,13 +17,10 @@ $BackendDir = Join-Path $RepoRoot "backend"
 $FrontendDir = Join-Path $RepoRoot "frontend"
 $CollectorDir = Join-Path $RepoRoot "collector"
 $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$Downloads = Join-Path $HOME "Downloads"
-$AuditRoot = Join-Path $Downloads "TRACE_LOCAL_CODE_AUDIT_$Timestamp"
+$AuditRoot = Join-Path (Join-Path $HOME "Downloads") "TRACE_LOCAL_CODE_AUDIT_$Timestamp"
 $ZipPath = "$AuditRoot.zip"
-$ReportPath = Join-Path $AuditRoot "audit-report.md"
-$SummaryPath = Join-Path $AuditRoot "audit-summary.json"
-$Findings = New-Object System.Collections.Generic.List[object]
 $Checks = New-Object System.Collections.Generic.List[object]
+$Findings = New-Object System.Collections.Generic.List[object]
 
 function Write-Step {
     param([string]$Message)
@@ -31,45 +28,18 @@ function Write-Step {
 }
 
 function Add-Check {
-    param(
-        [string]$Name,
-        [string]$Status,
-        [string]$Detail = ""
-    )
+    param([string]$Name, [string]$Status, [string]$Detail = "")
     $Checks.Add([pscustomobject]@{ name = $Name; status = $Status; detail = $Detail }) | Out-Null
 }
 
 function Add-Finding {
-    param(
-        [string]$Severity,
-        [string]$Area,
-        [string]$Message,
-        [string]$Recommendation
-    )
-    $Findings.Add([pscustomobject]@{ severity = $Severity; area = $Area; message = $Message; recommendation = $Recommendation }) | Out-Null
-}
-
-function Invoke-Captured {
-    param(
-        [string]$Name,
-        [scriptblock]$Script,
-        [string]$LogFile
-    )
-
-    Write-Step $Name
-    $fullLog = Join-Path $AuditRoot $LogFile
-    try {
-        $output = & $Script 2>&1 | Out-String
-        $output | Set-Content -LiteralPath $fullLog -Encoding UTF8
-        Add-Check -Name $Name -Status "PASS" -Detail $LogFile
-        return $true
-    }
-    catch {
-        ($_ | Out-String) | Set-Content -LiteralPath $fullLog -Encoding UTF8
-        Add-Check -Name $Name -Status "FAIL" -Detail $LogFile
-        Add-Finding -Severity "high" -Area $Name -Message $_.Exception.Message -Recommendation "Open $LogFile in the audit ZIP and fix the failing check."
-        return $false
-    }
+    param([string]$Severity, [string]$Area, [string]$Message, [string]$Recommendation)
+    $Findings.Add([pscustomobject]@{
+        severity = $Severity
+        area = $Area
+        message = $Message
+        recommendation = $Recommendation
+    }) | Out-Null
 }
 
 function Test-CommandExists {
@@ -87,7 +57,7 @@ function Invoke-SystemPython {
         & python @Arguments
         return
     }
-    throw "Python was not found. Install Python or make sure 'py' or 'python' is available in PATH."
+    throw "Python was not found. Install Python or make sure py or python is available in PATH."
 }
 
 function ConvertTo-RelativePath {
@@ -95,11 +65,39 @@ function ConvertTo-RelativePath {
     return $Path.Substring($RepoRoot.Length).TrimStart('\', '/')
 }
 
+function Invoke-Captured {
+    param([string]$Name, [scriptblock]$Script, [string]$LogFile)
+    Write-Step $Name
+    $FullLog = Join-Path $AuditRoot $LogFile
+    try {
+        $Output = & $Script 2>&1 | Out-String
+        $Output | Set-Content -LiteralPath $FullLog -Encoding UTF8
+        Add-Check -Name $Name -Status "PASS" -Detail $LogFile
+        return $true
+    }
+    catch {
+        ($_ | Out-String) | Set-Content -LiteralPath $FullLog -Encoding UTF8
+        Add-Check -Name $Name -Status "FAIL" -Detail $LogFile
+        Add-Finding -Severity "high" -Area $Name -Message $_.Exception.Message -Recommendation "Open $LogFile in the audit ZIP and fix the failing check."
+        return $false
+    }
+}
+
+function Get-AuditFiles {
+    Get-ChildItem -LiteralPath $RepoRoot -Recurse -File -Force |
+        Where-Object {
+            $_.FullName -notmatch "\\\.git\\" -and
+            $_.FullName -notmatch "\\node_modules\\" -and
+            $_.FullName -notmatch "\\\.venv\\" -and
+            $_.FullName -notmatch "\\dist\\" -and
+            $_.FullName -notmatch "\\\.trace-runs\\"
+        }
+}
+
 New-Item -ItemType Directory -Force -Path $AuditRoot | Out-Null
 Write-Step "Repository: $RepoRoot"
 Write-Step "Audit folder: $AuditRoot"
 
-# Repository identity
 Invoke-Captured -Name "Git status" -LogFile "git-status.txt" -Script {
     git -C $RepoRoot status --short
     git -C $RepoRoot branch --show-current
@@ -107,9 +105,8 @@ Invoke-Captured -Name "Git status" -LogFile "git-status.txt" -Script {
     git -C $RepoRoot tag --points-at HEAD
 } | Out-Null
 
-# Required path inventory
 Write-Step "Checking required paths"
-$requiredPaths = @(
+$RequiredPaths = @(
     "README.md",
     ".gitignore",
     ".github\workflows\ci.yml",
@@ -130,58 +127,47 @@ $requiredPaths = @(
     "docs\v1-release-checklist.md",
     "docs\releases\trace-v1.0.0-access-evidence-analyzer.md"
 )
-
-$missing = @()
-foreach ($path in $requiredPaths) {
-    if (-not (Test-Path (Join-Path $RepoRoot $path))) {
-        $missing += $path
+$Missing = @()
+foreach ($Path in $RequiredPaths) {
+    if (-not (Test-Path (Join-Path $RepoRoot $Path))) {
+        $Missing += $Path
     }
 }
-if ($missing.Count -eq 0) {
+if ($Missing.Count -eq 0) {
     Add-Check -Name "Required paths" -Status "PASS" -Detail "All required paths found"
 }
 else {
-    Add-Check -Name "Required paths" -Status "FAIL" -Detail ($missing -join ", ")
-    Add-Finding -Severity "high" -Area "Repo structure" -Message "Missing required paths: $($missing -join ', ')" -Recommendation "Restore or regenerate the missing release files."
+    Add-Check -Name "Required paths" -Status "FAIL" -Detail ($Missing -join ", ")
+    Add-Finding -Severity "high" -Area "Repo structure" -Message "Missing required paths: $($Missing -join ', ')" -Recommendation "Restore the missing release files."
 }
 
-# File inventory
 Write-Step "Collecting file inventory"
-$files = Get-ChildItem -LiteralPath $RepoRoot -Recurse -File -Force |
-    Where-Object {
-        $_.FullName -notmatch "\\\.git\\" -and
-        $_.FullName -notmatch "\\node_modules\\" -and
-        $_.FullName -notmatch "\\\.venv\\" -and
-        $_.FullName -notmatch "\\dist\\" -and
-        $_.FullName -notmatch "\\\.trace-runs\\"
-    }
-$inventory = $files | Select-Object @{Name="path";Expression={ConvertTo-RelativePath $_.FullName}}, Length, LastWriteTimeUtc
-$inventory | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $AuditRoot "file-inventory.json") -Encoding UTF8
-Add-Check -Name "File inventory" -Status "PASS" -Detail "$($files.Count) files inventoried"
+$Files = Get-AuditFiles
+$Files | Select-Object @{Name="path";Expression={ConvertTo-RelativePath $_.FullName}}, Length, LastWriteTimeUtc |
+    ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $AuditRoot "file-inventory.json") -Encoding UTF8
+Add-Check -Name "File inventory" -Status "PASS" -Detail "$($Files.Count) files inventoried"
 
-# PowerShell parse checks
 Invoke-Captured -Name "PowerShell parse check" -LogFile "powershell-parse.txt" -Script {
-    $parseErrors = @()
+    $ParseErrors = @()
     Get-ChildItem -LiteralPath $RepoRoot -Filter "*.ps1" -Recurse -File |
         Where-Object { $_.FullName -notmatch "\\\.git\\|\\node_modules\\|\\\.venv\\|\\dist\\" } |
         ForEach-Object {
-            $tokens = $null
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
-            if ($errors -and $errors.Count -gt 0) {
-                $parseErrors += [pscustomobject]@{ file = ConvertTo-RelativePath $_.FullName; errors = ($errors | ForEach-Object { $_.Message }) }
+            $Tokens = $null
+            $Errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$Tokens, [ref]$Errors) | Out-Null
+            if ($Errors -and $Errors.Count -gt 0) {
+                $ParseErrors += [pscustomobject]@{ file = ConvertTo-RelativePath $_.FullName; errors = ($Errors | ForEach-Object { $_.Message }) }
             }
         }
-    if ($parseErrors.Count -gt 0) {
-        $parseErrors | ConvertTo-Json -Depth 5
+    if ($ParseErrors.Count -gt 0) {
+        $ParseErrors | ConvertTo-Json -Depth 5
         throw "PowerShell parse errors detected."
     }
     "No PowerShell parse errors detected."
 } | Out-Null
 
-# JSON validity
 Invoke-Captured -Name "JSON validity check" -LogFile "json-validity.txt" -Script {
-    $jsonErrors = @()
+    $JsonErrors = @()
     Get-ChildItem -LiteralPath $RepoRoot -Filter "*.json" -Recurse -File |
         Where-Object { $_.FullName -notmatch "\\\.git\\|\\node_modules\\|\\\.venv\\|\\dist\\|\\\.trace-runs\\" } |
         ForEach-Object {
@@ -189,61 +175,58 @@ Invoke-Captured -Name "JSON validity check" -LogFile "json-validity.txt" -Script
                 Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8 | ConvertFrom-Json | Out-Null
             }
             catch {
-                $jsonErrors += [pscustomobject]@{ file = ConvertTo-RelativePath $_.FullName; error = $_.Exception.Message }
+                $JsonErrors += [pscustomobject]@{ file = ConvertTo-RelativePath $_.FullName; error = $_.Exception.Message }
             }
         }
-    if ($jsonErrors.Count -gt 0) {
-        $jsonErrors | ConvertTo-Json -Depth 5
+    if ($JsonErrors.Count -gt 0) {
+        $JsonErrors | ConvertTo-Json -Depth 5
         throw "Invalid JSON files detected."
     }
     "All JSON files parsed successfully."
 } | Out-Null
 
-# Secret-ish scan
 Write-Step "Running lightweight secret-pattern scan"
-$secretPatterns = @(
+$SecretPatterns = @(
     "BEGIN RSA PRIVATE KEY",
     "BEGIN OPENSSH PRIVATE KEY",
     "ghp_[A-Za-z0-9_]{20,}",
     "xox[baprs]-[A-Za-z0-9-]{10,}",
     "AKIA[0-9A-Z]{16}",
-    "(?i)client_secret\s*[:=]\s*['\""].{8,}",
-    "(?i)password\s*[:=]\s*['\""].{8,}",
-    "(?i)token\s*[:=]\s*['\""].{12,}"
+    "(?i)client_secret\s*[:=]\s*\S{8,}",
+    "(?i)password\s*[:=]\s*\S{8,}",
+    "(?i)token\s*[:=]\s*\S{12,}"
 )
-$secretHits = @()
-$textFiles = $files | Where-Object { $_.Length -lt 1MB -and $_.Extension -notin @(".png", ".jpg", ".jpeg", ".gif", ".ico", ".zip") }
-foreach ($file in $textFiles) {
-    $text = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction SilentlyContinue
-    foreach ($pattern in $secretPatterns) {
-        if ($text -match $pattern) {
-            $secretHits += [pscustomobject]@{ file = ConvertTo-RelativePath $file.FullName; pattern = $pattern }
+$SecretHits = @()
+$TextFiles = $Files | Where-Object { $_.Length -lt 1MB -and $_.Extension -notin @(".png", ".jpg", ".jpeg", ".gif", ".ico", ".zip") }
+foreach ($File in $TextFiles) {
+    $Text = Get-Content -LiteralPath $File.FullName -Raw -ErrorAction SilentlyContinue
+    foreach ($Pattern in $SecretPatterns) {
+        if ($Text -match $Pattern) {
+            $SecretHits += [pscustomobject]@{ file = ConvertTo-RelativePath $File.FullName; pattern = $Pattern }
         }
     }
 }
-$secretHits | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $AuditRoot "secret-scan.json") -Encoding UTF8
-if ($secretHits.Count -eq 0) {
+$SecretHits | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $AuditRoot "secret-scan.json") -Encoding UTF8
+if ($SecretHits.Count -eq 0) {
     Add-Check -Name "Secret-pattern scan" -Status "PASS" -Detail "No obvious secret patterns found"
 }
 else {
-    Add-Check -Name "Secret-pattern scan" -Status "WARN" -Detail "$($secretHits.Count) potential hits"
-    Add-Finding -Severity "medium" -Area "Secret scan" -Message "$($secretHits.Count) potential secret-pattern hits were found." -Recommendation "Review secret-scan.json manually before publishing or tagging."
+    Add-Check -Name "Secret-pattern scan" -Status "WARN" -Detail "$($SecretHits.Count) potential hits"
+    Add-Finding -Severity "medium" -Area "Secret scan" -Message "$($SecretHits.Count) potential secret-pattern hits were found." -Recommendation "Review secret-scan.json manually."
 }
 
-# Gitignore protection checks
 Write-Step "Checking local artifact ignore rules"
-$gitignoreText = Get-Content -LiteralPath (Join-Path $RepoRoot ".gitignore") -Raw -Encoding UTF8
-$requiredIgnorePatterns = @(".trace-runs/", "backend/.trace-runs/", "node_modules/", "frontend/dist/", "*.zip")
-$missingIgnores = $requiredIgnorePatterns | Where-Object { $gitignoreText -notmatch [regex]::Escape($_) }
-if ($missingIgnores.Count -eq 0) {
+$GitignoreText = Get-Content -LiteralPath (Join-Path $RepoRoot ".gitignore") -Raw -Encoding UTF8
+$RequiredIgnorePatterns = @(".trace-runs/", "backend/.trace-runs/", "node_modules/", "frontend/dist/", "*.zip")
+$MissingIgnores = $RequiredIgnorePatterns | Where-Object { $GitignoreText -notmatch [regex]::Escape($_) }
+if ($MissingIgnores.Count -eq 0) {
     Add-Check -Name "Gitignore protections" -Status "PASS" -Detail "Required local artifact patterns found"
 }
 else {
-    Add-Check -Name "Gitignore protections" -Status "FAIL" -Detail ($missingIgnores -join ", ")
-    Add-Finding -Severity "high" -Area "Git hygiene" -Message "Missing .gitignore protections: $($missingIgnores -join ', ')" -Recommendation "Add missing ignore patterns before running local demos."
+    Add-Check -Name "Gitignore protections" -Status "FAIL" -Detail ($MissingIgnores -join ", ")
+    Add-Finding -Severity "high" -Area "Git hygiene" -Message "Missing .gitignore protections: $($MissingIgnores -join ', ')" -Recommendation "Add missing ignore patterns."
 }
 
-# Backend checks
 if (-not $SkipBackend) {
     $VenvPython = Join-Path $BackendDir ".venv\Scripts\python.exe"
     if (-not (Test-Path $VenvPython)) {
@@ -281,11 +264,10 @@ else {
     Add-Check -Name "Backend checks" -Status "SKIP" -Detail "Skipped by -SkipBackend"
 }
 
-# Frontend checks
 if (-not $SkipFrontend) {
     if (-not (Test-CommandExists "npm")) {
         Add-Check -Name "Frontend prerequisites" -Status "FAIL" -Detail "npm not found"
-        Add-Finding -Severity "high" -Area "Frontend" -Message "npm was not found in PATH." -Recommendation "Install Node.js or make sure npm is available before running frontend checks."
+        Add-Finding -Severity "high" -Area "Frontend" -Message "npm was not found in PATH." -Recommendation "Install Node.js or make sure npm is available."
     }
     else {
         if (-not $NoInstall -and -not (Test-Path (Join-Path $FrontendDir "node_modules"))) {
@@ -295,13 +277,11 @@ if (-not $SkipFrontend) {
                 finally { Pop-Location }
             } | Out-Null
         }
-
         Invoke-Captured -Name "Frontend test/typecheck" -LogFile "frontend-test.txt" -Script {
             Push-Location $FrontendDir
             try { npm test }
             finally { Pop-Location }
         } | Out-Null
-
         Invoke-Captured -Name "Frontend build" -LogFile "frontend-build.txt" -Script {
             Push-Location $FrontendDir
             try { npm run build }
@@ -313,78 +293,77 @@ else {
     Add-Check -Name "Frontend checks" -Status "SKIP" -Detail "Skipped by -SkipFrontend"
 }
 
-# Collector sample smoke
 Invoke-Captured -Name "Collector sample contract smoke" -LogFile "collector-sample-smoke.txt" -Script {
-    $scenarios = @("account-disabled", "missing-license", "service-plan-disabled", "guest-b2b-access-failure", "ca-details-missing", "ca-device-noncompliant", "mfa-requirement-not-satisfied", "no-recent-signin-evidence", "successful-access-baseline")
-    foreach ($scenario in $scenarios) {
-        $jsonText = (& (Join-Path $CollectorDir "Invoke-TraceM365AccessScan.ps1") -UserPrincipalName "sample.user@contoso.invalid" -AffectedService "Microsoft 365 general access" -Scenario $scenario -UseSampleData:$true | Out-String)
-        $result = $jsonText | ConvertFrom-Json -ErrorAction Stop
-        if ($result.scenario_id -ne $scenario) { throw "Scenario $scenario returned scenario_id '$($result.scenario_id)'" }
-        if ($result.module -ne "m365-access-path-analyzer") { throw "Scenario $scenario returned unexpected module '$($result.module)'" }
-        "$scenario OK"
+    $Scenarios = @("account-disabled", "missing-license", "service-plan-disabled", "guest-b2b-access-failure", "ca-details-missing", "ca-device-noncompliant", "mfa-requirement-not-satisfied", "no-recent-signin-evidence", "successful-access-baseline")
+    foreach ($Scenario in $Scenarios) {
+        $JsonText = (& (Join-Path $CollectorDir "Invoke-TraceM365AccessScan.ps1") -UserPrincipalName "sample.user@contoso.invalid" -AffectedService "Microsoft 365 general access" -Scenario $Scenario -UseSampleData:$true | Out-String)
+        $Result = $JsonText | ConvertFrom-Json -ErrorAction Stop
+        if ($Result.scenario_id -ne $Scenario) { throw "Scenario $Scenario returned scenario_id '$($Result.scenario_id)'" }
+        if ($Result.module -ne "m365-access-path-analyzer") { throw "Scenario $Scenario returned unexpected module '$($Result.module)'" }
+        "$Scenario OK"
     }
 } | Out-Null
 
-# Documentation consistency checks
-Write-Step "Checking documentation consistency"
-$readme = Get-Content -LiteralPath (Join-Path $RepoRoot "README.md") -Raw -Encoding UTF8
-$requiredReadmeTerms = @("Access Evidence Analyzer", "generic_access_log_text", "entra_signin_csv", "resource_assignment_json", "POST /api/logs/analyze", "not a SIEM")
-$missingTerms = $requiredReadmeTerms | Where-Object { $readme -notmatch [regex]::Escape($_) }
-if ($missingTerms.Count -eq 0) {
+Write-Step "Checking README consistency"
+$Readme = Get-Content -LiteralPath (Join-Path $RepoRoot "README.md") -Raw -Encoding UTF8
+$RequiredReadmeTerms = @("Access Evidence Analyzer", "generic_access_log_text", "entra_signin_csv", "resource_assignment_json", "POST /api/logs/analyze", "not a SIEM")
+$MissingTerms = $RequiredReadmeTerms | Where-Object { $Readme -notmatch [regex]::Escape($_) }
+if ($MissingTerms.Count -eq 0) {
     Add-Check -Name "README consistency" -Status "PASS" -Detail "Current v1 terms found"
 }
 else {
-    Add-Check -Name "README consistency" -Status "WARN" -Detail ($missingTerms -join ", ")
-    Add-Finding -Severity "medium" -Area "Documentation" -Message "README is missing expected v1 terms: $($missingTerms -join ', ')" -Recommendation "Refresh README to match current v1 scope."
+    Add-Check -Name "README consistency" -Status "WARN" -Detail ($MissingTerms -join ", ")
+    Add-Finding -Severity "medium" -Area "Documentation" -Message "README is missing expected v1 terms: $($MissingTerms -join ', ')" -Recommendation "Refresh README to match current scope."
 }
 
-# Summary and report
-$failCount = ($Checks | Where-Object { $_.status -eq "FAIL" }).Count
-$warnCount = ($Checks | Where-Object { $_.status -eq "WARN" }).Count
-$summary = [pscustomobject]@{
+$FailCount = ($Checks | Where-Object { $_.status -eq "FAIL" }).Count
+$WarnCount = ($Checks | Where-Object { $_.status -eq "WARN" }).Count
+$Head = git -C $RepoRoot rev-parse HEAD
+$Branch = git -C $RepoRoot branch --show-current
+$Summary = [pscustomobject]@{
     generated_at = (Get-Date).ToString("o")
     repo_root = $RepoRoot
-    head = (git -C $RepoRoot rev-parse HEAD)
-    branch = (git -C $RepoRoot branch --show-current)
+    head = $Head
+    branch = $Branch
     checks = $Checks
     findings = $Findings
-    fail_count = $failCount
-    warn_count = $warnCount
+    fail_count = $FailCount
+    warn_count = $WarnCount
 }
-$summary | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $SummaryPath -Encoding UTF8
+$Summary | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $AuditRoot "audit-summary.json") -Encoding UTF8
 
-$report = @()
-$report += "# TRACE Local Code Audit"
-$report += ""
-$report += "- Generated: $($summary.generated_at)"
-$report += "- Repository: `$RepoRoot`"
-$report += "- Branch: `$($summary.branch)`"
-$report += "- HEAD: `$($summary.head)`"
-$report += "- Failures: $failCount"
-$report += "- Warnings: $warnCount"
-$report += ""
-$report += "## Checks"
-$report += ""
-foreach ($check in $Checks) {
-    $report += "- **$($check.status)** - $($check.name): $($check.detail)"
+$Report = @()
+$Report += "# TRACE Local Code Audit"
+$Report += ""
+$Report += "- Generated: $($Summary.generated_at)"
+$Report += "- Repository: `$RepoRoot`"
+$Report += "- Branch: `$Branch`"
+$Report += "- HEAD: `$Head`"
+$Report += "- Failures: $FailCount"
+$Report += "- Warnings: $WarnCount"
+$Report += ""
+$Report += "## Checks"
+$Report += ""
+foreach ($Check in $Checks) {
+    $Report += "- **$($Check.status)** - $($Check.name): $($Check.detail)"
 }
-$report += ""
-$report += "## Findings"
-$report += ""
+$Report += ""
+$Report += "## Findings"
+$Report += ""
 if ($Findings.Count -eq 0) {
-    $report += "No findings were recorded by the audit script."
+    $Report += "No findings were recorded by the audit script."
 }
 else {
-    foreach ($finding in $Findings) {
-        $report += "### $($finding.severity.ToUpper()) - $($finding.area)"
-        $report += ""
-        $report += $finding.message
-        $report += ""
-        $report += "Recommendation: $($finding.recommendation)"
-        $report += ""
+    foreach ($Finding in $Findings) {
+        $Report += "### $($Finding.severity.ToUpper()) - $($Finding.area)"
+        $Report += ""
+        $Report += $Finding.message
+        $Report += ""
+        $Report += "Recommendation: $($Finding.recommendation)"
+        $Report += ""
     }
 }
-$report | Set-Content -LiteralPath $ReportPath -Encoding UTF8
+$Report | Set-Content -LiteralPath (Join-Path $AuditRoot "audit-report.md") -Encoding UTF8
 
 if (Test-Path $ZipPath) {
     Remove-Item -LiteralPath $ZipPath -Force
@@ -395,10 +374,10 @@ Write-Host ""
 Write-Host "TRACE local code audit complete." -ForegroundColor Green
 Write-Host "Audit folder: $AuditRoot"
 Write-Host "Audit ZIP:    $ZipPath"
-Write-Host "Failures:     $failCount"
-Write-Host "Warnings:     $warnCount"
+Write-Host "Failures:     $FailCount"
+Write-Host "Warnings:     $WarnCount"
 
-if ($failCount -gt 0) {
+if ($FailCount -gt 0) {
     exit 1
 }
 exit 0
