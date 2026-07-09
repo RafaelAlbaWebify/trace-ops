@@ -139,25 +139,20 @@ function emptyAccessResult(sourceType: AccessEvidenceInput["sourceType"]): Stand
 }
 
 function FieldHint({ text }: { text: string }) {
-  return <small className="trace-field-hint">{text}</small>;
+  return <small className="trace-muted">{text}</small>;
 }
 
 function ResourceAssignmentEvidenceHelper() {
   return (
-    <details className="trace-evidence-helper trace-full-width" open>
+    <details className="trace-guidance-card trace-full-width" open>
       <summary>Evidence collection map</summary>
-      <div className="trace-evidence-map-grid">
+      <div className="trace-module-grid">
         {resourceAssignmentEvidenceMap.map((item) => (
-          <article className="trace-evidence-map-card" key={item.check}>
-            <strong>{item.check}</strong>
-            <dl>
-              <dt>Where to check</dt>
-              <dd>{item.source}</dd>
-              <dt>Why it matters</dt>
-              <dd>{item.purpose}</dd>
-              <dt>Safe boundary</dt>
-              <dd>{item.boundary}</dd>
-            </dl>
+          <article className="trace-module-card" key={item.check}>
+            <h3>{item.check}</h3>
+            <p><strong>Where to check:</strong> {item.source}</p>
+            <p><strong>Why it matters:</strong> {item.purpose}</p>
+            <p><strong>Safe boundary:</strong> {item.boundary}</p>
           </article>
         ))}
       </div>
@@ -270,7 +265,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                 <p>Collect enough evidence to separate sign-in, MFA, Conditional Access, expected access, and resource membership before recommending any change.</p>
               </div>
               <ResourceAssignmentEvidenceHelper />
-              <div className="trace-mini-checklist">
+              <div className="trace-guidance-card trace-full-width">
                 <strong>Minimum evidence before running</strong>
                 <ul>
                   <li>Same user, application, resource, and timestamp/time window across the evidence.</li>
