@@ -20,8 +20,8 @@ $BackendUrl = "http://127.0.0.1:8000/api/health"
 $FrontendUrl = "http://127.0.0.1:5173"
 $Checks = @()
 $Findings = @()
-$BackendJob = $null
-$FrontendJob = $null
+$BackendProcess = $null
+$FrontendProcess = $null
 $ExitCode = 0
 
 function Write-Step { param([string]$Message) Write-Host "[TRACE VISUAL AUDIT] $Message" -ForegroundColor Cyan }
@@ -50,7 +50,7 @@ function Wait-Url {
         Start-Sleep -Seconds 2
     }
     Add-Check -Name "$Name reachable" -Status "FAIL" -Detail $Url
-    Add-Finding -Severity "high" -Area $Name -Message "$Url did not become reachable." -Recommendation "Review backend/frontend job logs in the visual audit ZIP."
+    Add-Finding -Severity "high" -Area $Name -Message "$Url did not become reachable." -Recommendation "Review backend/frontend process logs in the visual audit ZIP."
     return $false
 }
 
@@ -77,6 +77,41 @@ function Run-CommandLog {
         return $false
     } finally {
         Pop-Location
+    }
+}
+
+function Start-OwnedProcess {
+    param(
+        [string]$Name,
+        [string]$WorkingDirectory,
+        [string]$FilePath,
+        [string[]]$Arguments,
+        [string]$StdOutFile,
+        [string]$StdErrFile
+    )
+    Write-Step "Starting $Name process"
+    $StdOutPath = Join-Path $AuditRoot $StdOutFile
+    $StdErrPath = Join-Path $AuditRoot $StdErrFile
+    $Process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -WorkingDirectory $WorkingDirectory -RedirectStandardOutput $StdOutPath -RedirectStandardError $StdErrPath -PassThru -WindowStyle Hidden
+    Add-Check -Name "$Name start" -Status "PASS" -Detail "Started PID $($Process.Id)"
+    return $Process
+}
+
+function Stop-ProcessTree {
+    param([System.Diagnostics.Process]$Process, [string]$Name)
+    if ($null -eq $Process) { return }
+    try {
+        $Fresh = Get-Process -Id $Process.Id -ErrorAction SilentlyContinue
+        if ($null -eq $Fresh) {
+            Add-Check -Name "$Name cleanup" -Status "PASS" -Detail "Process already exited"
+            return
+        }
+        Write-Step "Stopping $Name process tree PID $($Process.Id)"
+        & taskkill.exe /PID $Process.Id /T /F | Out-String | Set-Content -LiteralPath (Join-Path $AuditRoot "$Name-cleanup.txt") -Encoding UTF8
+        Add-Check -Name "$Name cleanup" -Status "PASS" -Detail "$Name-cleanup.txt"
+    } catch {
+        Add-Check -Name "$Name cleanup" -Status "WARN" -Detail $_.Exception.Message
+        Add-Finding -Severity "medium" -Area "$Name cleanup" -Message $_.Exception.Message -Recommendation "Run STOP_TRACE_LOCAL.bat to clean local TRACE processes."
     }
 }
 
@@ -153,28 +188,16 @@ try {
 
     $BackendAlreadyRunning = Test-Url -Url $BackendUrl
     if ($BackendAlreadyRunning) {
-        Add-Check -Name "Backend start" -Status "PASS" -Detail "Already running at $BackendUrl"
+        Add-Check -Name "Backend start" -Status "PASS" -Detail "Already running at $BackendUrl; visual audit will not stop operator-owned process"
     } elseif (-not $SkipBackendStart) {
-        Write-Step "Starting backend job"
-        $BackendJob = Start-Job -Name "TRACE Visual Audit Backend" -ScriptBlock {
-            param($Dir, $PythonExe)
-            Set-Location $Dir
-            & $PythonExe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-        } -ArgumentList $BackendDir, $VenvPython
-        Add-Check -Name "Backend start" -Status "PASS" -Detail "Started background job"
+        $BackendProcess = Start-OwnedProcess -Name "Backend" -WorkingDirectory $BackendDir -FilePath $VenvPython -Arguments @("-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000") -StdOutFile "backend-process.out.log" -StdErrFile "backend-process.err.log"
     }
 
     $FrontendAlreadyRunning = Test-Url -Url $FrontendUrl
     if ($FrontendAlreadyRunning) {
-        Add-Check -Name "Frontend start" -Status "PASS" -Detail "Already running at $FrontendUrl"
+        Add-Check -Name "Frontend start" -Status "PASS" -Detail "Already running at $FrontendUrl; visual audit will not stop operator-owned process"
     } elseif (-not $SkipFrontendStart) {
-        Write-Step "Starting frontend job"
-        $FrontendJob = Start-Job -Name "TRACE Visual Audit Frontend" -ScriptBlock {
-            param($Dir)
-            Set-Location $Dir
-            & cmd.exe /c npm run dev -- --host 127.0.0.1 --port 5173
-        } -ArgumentList $FrontendDir
-        Add-Check -Name "Frontend start" -Status "PASS" -Detail "Started background job"
+        $FrontendProcess = Start-OwnedProcess -Name "Frontend" -WorkingDirectory $FrontendDir -FilePath "cmd.exe" -Arguments @("/c", "npm", "run", "dev", "--", "--host", "127.0.0.1", "--port", "5173") -StdOutFile "frontend-process.out.log" -StdErrFile "frontend-process.err.log"
     }
 
     $BackendReady = Wait-Url -Name "Backend" -Url $BackendUrl
@@ -202,16 +225,8 @@ try {
     Add-Finding -Severity "high" -Area "Visual audit" -Message $_.Exception.Message -Recommendation "Review fatal-error.txt and service logs."
     $_ | Out-String | Set-Content -LiteralPath (Join-Path $AuditRoot "fatal-error.txt") -Encoding UTF8
 } finally {
-    if ($BackendJob) {
-        Receive-Job -Job $BackendJob -Keep 2>&1 | Out-String | Set-Content -LiteralPath (Join-Path $AuditRoot "backend-job.log") -Encoding UTF8
-        Stop-Job -Job $BackendJob -ErrorAction SilentlyContinue
-        Remove-Job -Job $BackendJob -Force -ErrorAction SilentlyContinue
-    }
-    if ($FrontendJob) {
-        Receive-Job -Job $FrontendJob -Keep 2>&1 | Out-String | Set-Content -LiteralPath (Join-Path $AuditRoot "frontend-job.log") -Encoding UTF8
-        Stop-Job -Job $FrontendJob -ErrorAction SilentlyContinue
-        Remove-Job -Job $FrontendJob -Force -ErrorAction SilentlyContinue
-    }
+    Stop-ProcessTree -Process $BackendProcess -Name "Backend"
+    Stop-ProcessTree -Process $FrontendProcess -Name "Frontend"
 
     $FailCount = Write-SummaryFiles
     if ($FailCount -gt 0) { $ExitCode = 1 }
