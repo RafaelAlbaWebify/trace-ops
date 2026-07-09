@@ -40,6 +40,22 @@ def detect_log_patterns(events: List[NormalizedAccessEvent], source_type: str) -
     if mfa:
         patterns.append(_pattern("LOG_PATTERN_MFA_CHALLENGE_OR_FAILURE", "MFA challenge or failure pattern detected", "medium", "medium", mfa, ["An event references MFA or multi-factor authentication."]))
 
+    license_service_plan = [
+        i for i, e in enumerate(events)
+        if e.event_outcome == "failure" and _has(
+            e,
+            "not licensed",
+            "license missing",
+            "no valid license",
+            "license disabled",
+            "service plan disabled",
+            "service plan not enabled",
+            "not assigned license",
+        )
+    ]
+    if license_service_plan:
+        patterns.append(_pattern("LOG_PATTERN_LICENSE_OR_SERVICE_PLAN_MISSING", "License or service plan evidence detected", "medium", "high", license_service_plan, ["A failed event references missing licensing or a disabled service plan."]))
+
     disabled = [i for i, e in enumerate(events) if e.event_outcome == "failure" and _has(e, "disabled")]
     if disabled:
         patterns.append(_pattern("LOG_PATTERN_DISABLED_ACCOUNT_ATTEMPT", "Disabled account attempt pattern detected", "high", "high", disabled, ["A failed event references a disabled identity state."]))
@@ -80,6 +96,21 @@ def _finding_for(pattern: LogPattern) -> Dict[str, Any]:
             next_steps=["Confirm expected access with the resource owner.", "Check app assignment, SharePoint group, M365 group, security group, access package, or file/share group membership."],
             what_not_to_change_yet=["Do not grant broad admin or owner access.", "Do not weaken Conditional Access when evidence points to resource authorization."],
             limitations=["Generic pasted logs may not include complete resource authorization evidence."],
+            source_module=SOURCE_MODULE,
+        )
+
+    if pattern.pattern_id == "LOG_PATTERN_LICENSE_OR_SERVICE_PLAN_MISSING":
+        return _finding(
+            rule_id=pattern.pattern_id,
+            title="License or service plan appears missing or disabled",
+            severity="medium",
+            confidence=pattern.confidence,
+            likely_cause="The supplied evidence indicates the user may be missing a required license or service plan for the affected service.",
+            evidence=pattern.evidence,
+            evidence_missing=["Current license assignment, service-plan status, group-based licensing source, and propagation timing may be incomplete."],
+            next_steps=["Confirm the user's assigned license SKU and service-plan status.", "Check whether licensing is direct or group-based.", "Compare with a known-good user who can access the same service.", "Confirm whether license changes are still propagating before escalating."],
+            what_not_to_change_yet=["Do not grant broad admin access to work around a licensing issue.", "Do not remove and re-add licenses without confirming group-based licensing ownership and approval path."],
+            limitations=["Pasted evidence may indicate a license symptom but may not prove the exact SKU or service-plan source."],
             source_module=SOURCE_MODULE,
         )
 
