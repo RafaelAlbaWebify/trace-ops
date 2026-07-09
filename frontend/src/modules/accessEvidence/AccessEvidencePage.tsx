@@ -22,6 +22,46 @@ type ResourceAssignmentGuide = {
   evidenceChecked: string;
 };
 
+type EvidenceMapItem = {
+  check: string;
+  source: string;
+  purpose: string;
+  boundary: string;
+};
+
+const resourceAssignmentEvidenceMap: EvidenceMapItem[] = [
+  {
+    check: "Authentication result",
+    source: "Entra sign-in log for the same user, app, and timestamp.",
+    purpose: "Separates sign-in failure from resource authorization or membership issues.",
+    boundary: "Do not change groups or permissions if authentication is still failing."
+  },
+  {
+    check: "MFA and Conditional Access",
+    source: "Sign-in detail view: MFA requirement, CA status, failure reason, and error code.",
+    purpose: "Shows whether security controls explain the access problem.",
+    boundary: "Do not edit CA/MFA policy from a user report alone."
+  },
+  {
+    check: "Assignment or membership",
+    source: "Resource permissions, SharePoint/M365 membership, AD group, or app assignment view.",
+    purpose: "Confirms whether the user is on the expected access path.",
+    boundary: "Do not add access until expected access is confirmed."
+  },
+  {
+    check: "Expected access approval",
+    source: "Ticket, manager approval, resource owner confirmation, or access request record.",
+    purpose: "Prevents treating a correct denial as an incident.",
+    boundary: "Do not assume access should exist just because the user asks for it."
+  },
+  {
+    check: "Observed user failure",
+    source: "Redacted screenshot text, exact error wording, affected URL/resource, and time window.",
+    purpose: "Ties backend evidence to the exact user impact.",
+    boundary: "Do not paste passwords, tokens, cookies, or sensitive customer data."
+  }
+];
+
 const defaultResourceGuide: ResourceAssignmentGuide = {
   timestamp: "2026-07-07T11:00:00Z",
   application: "SharePoint Online",
@@ -96,6 +136,33 @@ function emptyAccessResult(sourceType: AccessEvidenceInput["sourceType"]): Stand
     readOnlyKept: true,
     raw: { sourceType }
   };
+}
+
+function FieldHint({ children }: { children: string }) {
+  return <small className="trace-field-hint">{children}</small>;
+}
+
+function ResourceAssignmentEvidenceHelper() {
+  return (
+    <details className="trace-evidence-helper trace-full-width" open>
+      <summary>Evidence collection map</summary>
+      <div className="trace-evidence-map-grid">
+        {resourceAssignmentEvidenceMap.map((item) => (
+          <article className="trace-evidence-map-card" key={item.check}>
+            <strong>{item.check}</strong>
+            <dl>
+              <dt>Where to check</dt>
+              <dd>{item.source}</dd>
+              <dt>Why it matters</dt>
+              <dd>{item.purpose}</dd>
+              <dt>Safe boundary</dt>
+              <dd>{item.boundary}</dd>
+            </dl>
+          </article>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
@@ -181,14 +248,17 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                 <option value="entra_signin_csv">Entra sign-in CSV</option>
                 <option value="resource_assignment_json">Resource assignment guided form</option>
               </select>
+              <FieldHint>Choose guided form when sign-in succeeds but resource access still fails.</FieldHint>
             </label>
             <label>
               <span>Affected user</span>
               <input value={form.affectedUser ?? ""} onChange={(event) => update("affectedUser", event.target.value)} />
+              <FieldHint>Use the same redacted user identifier across sign-in, ticket, and resource evidence.</FieldHint>
             </label>
             <label>
               <span>Affected service/resource</span>
               <input value={form.affectedService ?? ""} onChange={(event) => update("affectedService", event.target.value)} />
+              <FieldHint>Name the exact site, app, mailbox, group, or resource the user cannot open.</FieldHint>
             </label>
           </fieldset>
 
@@ -196,16 +266,27 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
             <fieldset>
               <legend>Resource assignment guided form</legend>
               <div className="trace-guidance-card trace-full-width">
-                <strong>Where to get this evidence</strong>
-                <p>Use Entra sign-in logs for authentication/MFA/Conditional Access, the ticket or resource owner for expected access, and SharePoint/M365/AD/app assignment views for membership evidence.</p>
+                <strong>Use this when authentication worked but access still fails</strong>
+                <p>Collect enough evidence to separate sign-in, MFA, Conditional Access, expected access, and resource membership before recommending any change.</p>
+              </div>
+              <ResourceAssignmentEvidenceHelper />
+              <div className="trace-mini-checklist">
+                <strong>Minimum evidence before running</strong>
+                <ul>
+                  <li>Same user, application, resource, and timestamp/time window across the evidence.</li>
+                  <li>Authentication, MFA, and Conditional Access result checked before membership changes.</li>
+                  <li>Expected access confirmed by ticket, owner, manager, or access request record.</li>
+                </ul>
               </div>
               <label>
                 <span>Timestamp / time window</span>
                 <input value={resourceGuide.timestamp} onChange={(event) => updateResourceGuide("timestamp", event.target.value)} />
+                <FieldHint>Use the failed user attempt time, not the time you opened the ticket.</FieldHint>
               </label>
               <label>
                 <span>Application</span>
                 <input value={resourceGuide.application} onChange={(event) => updateResourceGuide("application", event.target.value)} />
+                <FieldHint>Match the app name shown in the sign-in log or access evidence.</FieldHint>
               </label>
               <label>
                 <span>Sign-in result</span>
@@ -214,6 +295,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="failure">Failed</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
+                <FieldHint>If sign-in failed, solve authentication before resource membership.</FieldHint>
               </label>
               <label>
                 <span>MFA result</span>
@@ -223,6 +305,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="failure">Failed</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
+                <FieldHint>Use sign-in detail, not memory or user interpretation.</FieldHint>
               </label>
               <label>
                 <span>Conditional Access result</span>
@@ -232,6 +315,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="notApplied">Not applied</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
+                <FieldHint>Only mark blocking when the sign-in detail or error evidence supports it.</FieldHint>
               </label>
               <label>
                 <span>Assignment / membership status</span>
@@ -240,6 +324,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="true">Present / member</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
+                <FieldHint>Check the actual resource access path, not only broad AD membership.</FieldHint>
               </label>
               <label>
                 <span>Access expected / approved</span>
@@ -248,14 +333,17 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="false">No, access not confirmed</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
+                <FieldHint>Use the request record or owner confirmation before recommending access changes.</FieldHint>
               </label>
               <label className="trace-full-width">
                 <span>Failure observed by user</span>
                 <textarea rows={3} value={resourceGuide.failureReason} onChange={(event) => updateResourceGuide("failureReason", event.target.value)} />
+                <FieldHint>Capture exact redacted error text, URL/resource name, and impact. Do not paste secrets.</FieldHint>
               </label>
               <label className="trace-full-width">
                 <span>Evidence checked, one item per line</span>
                 <textarea rows={5} value={resourceGuide.evidenceChecked} onChange={(event) => updateResourceGuide("evidenceChecked", event.target.value)} />
+                <FieldHint>List only checks actually performed. Unknown evidence is better than invented certainty.</FieldHint>
               </label>
             </fieldset>
           ) : (
@@ -264,6 +352,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
               <label className="trace-full-width">
                 <span>Paste redacted evidence</span>
                 <textarea rows={12} value={form.content} onChange={(event) => update("content", event.target.value)} />
+                <FieldHint>Paste logs, CSV rows, or notes with secrets removed. Keep timestamps and error wording.</FieldHint>
               </label>
             </fieldset>
           )}
@@ -273,6 +362,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
             <label className="trace-full-width">
               <span>Operator notes optional</span>
               <textarea rows={3} value={form.notes ?? ""} onChange={(event) => update("notes", event.target.value)} />
+              <FieldHint>Add local context, business impact, or handoff notes. Keep it factual and redacted.</FieldHint>
             </label>
           </fieldset>
 
