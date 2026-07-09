@@ -76,6 +76,28 @@ const examples: Record<AccessEvidenceInput["sourceType"], string> = {
   resource_assignment_json: ""
 };
 
+function emptyAccessResult(sourceType: AccessEvidenceInput["sourceType"]): StandardDiagnosticResult {
+  const labels: Record<AccessEvidenceInput["sourceType"], string> = {
+    generic_access_log_text: "Generic access log text",
+    entra_signin_csv: "Entra sign-in CSV",
+    resource_assignment_json: "Resource assignment guided form"
+  };
+
+  return {
+    title: "Access evidence analyzer",
+    status: "not_run",
+    findingId: null,
+    summary: `Ready to analyze ${labels[sourceType]} evidence.`,
+    evidenceUsed: [],
+    evidenceMissing: [],
+    safeNextSteps: [],
+    doNotChangeYet: [],
+    limitations: [],
+    readOnlyKept: true,
+    raw: { sourceType }
+  };
+}
+
 export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
   const [resourceGuide, setResourceGuide] = useState<ResourceAssignmentGuide>(defaultResourceGuide);
   const [form, setForm] = useState<AccessEvidenceInput>({
@@ -106,6 +128,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
       content: sourceType === "resource_assignment_json" ? buildResourceAssignmentJson(current, resourceGuide) : examples[sourceType],
       affectedService: sourceType === "resource_assignment_json" ? "Engineering SharePoint Site" : current.affectedService
     }));
+    onResult(emptyAccessResult(sourceType));
   }
 
   async function copyStructuredEvidence() {
