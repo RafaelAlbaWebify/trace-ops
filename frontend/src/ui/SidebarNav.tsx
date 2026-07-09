@@ -10,6 +10,7 @@ export function SidebarNav({ activeId, onSelect }: SidebarNavProps) {
     <nav className="trace-sidebar" aria-label="diagnostic navigation">
       <button
         className={`trace-nav-item ${activeId === "overview" ? "active" : ""}`}
+        data-module-id="overview"
         onClick={() => onSelect("overview")}
       >
         <span>Overview</span>
@@ -23,6 +24,7 @@ export function SidebarNav({ activeId, onSelect }: SidebarNavProps) {
               <button
                 key={module.id}
                 className={`trace-nav-item ${activeId === module.id ? "active" : ""}`}
+                data-module-id={module.id}
                 onClick={() => onSelect(module.id)}
               >
                 <span>{module.label}</span>
