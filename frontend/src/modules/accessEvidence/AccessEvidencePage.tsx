@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { AccessEvidenceInput, runAccessEvidenceAnalysis, StandardDiagnosticResult } from "../../api/traceApi";
 
 type AccessEvidencePageProps = {
@@ -138,7 +138,7 @@ function emptyAccessResult(sourceType: AccessEvidenceInput["sourceType"]): Stand
   };
 }
 
-function FieldHint({ children }: { children: string }) {
+function FieldHint({ children }: { children: ReactNode }) {
   return <small className="trace-field-hint">{children}</small>;
 }
 
