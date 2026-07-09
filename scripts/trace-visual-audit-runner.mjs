@@ -44,7 +44,6 @@ async function collectPageState(page, name) {
 
     const buttons = Array.from(document.querySelectorAll("button")).filter(visibleText).map((button) => ({
       text: labelOf(button),
-      visibleText: textOf(button),
       disabled: button.disabled,
       className: button.className || "",
       ariaLabel: button.getAttribute("aria-label") || null,
@@ -70,7 +69,6 @@ async function collectPageState(page, name) {
 
     const navButtons = Array.from(document.querySelectorAll("nav button")).filter(visibleText).map((button) => ({
       text: labelOf(button),
-      visibleText: textOf(button),
       active: button.className.includes("active"),
       disabled: button.disabled,
       moduleId: button.getAttribute("data-module-id") || null
