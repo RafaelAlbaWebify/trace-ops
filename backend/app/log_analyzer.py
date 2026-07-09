@@ -56,6 +56,24 @@ def detect_log_patterns(events: List[NormalizedAccessEvent], source_type: str) -
     if license_service_plan:
         patterns.append(_pattern("LOG_PATTERN_LICENSE_OR_SERVICE_PLAN_MISSING", "License or service plan evidence detected", "medium", "high", license_service_plan, ["A failed event references missing licensing or a disabled service plan."]))
 
+    guest_b2b = [
+        i for i, e in enumerate(events)
+        if e.event_outcome == "failure" and _has(
+            e,
+            "guest user",
+            "b2b",
+            "external user",
+            "invitation not redeemed",
+            "redemption pending",
+            "cross-tenant access",
+            "tenant restrictions",
+            "external collaboration",
+            "guest not assigned",
+        )
+    ]
+    if guest_b2b:
+        patterns.append(_pattern("LOG_PATTERN_GUEST_B2B_ACCESS_BLOCKED", "Guest or B2B access evidence detected", "medium", "high", guest_b2b, ["A failed event references guest/B2B invitation, redemption, tenant restriction, or external access evidence."]))
+
     disabled = [i for i, e in enumerate(events) if e.event_outcome == "failure" and _has(e, "disabled")]
     if disabled:
         patterns.append(_pattern("LOG_PATTERN_DISABLED_ACCOUNT_ATTEMPT", "Disabled account attempt pattern detected", "high", "high", disabled, ["A failed event references a disabled identity state."]))
@@ -111,6 +129,21 @@ def _finding_for(pattern: LogPattern) -> Dict[str, Any]:
             next_steps=["Confirm the user's assigned license SKU and service-plan status.", "Check whether licensing is direct or group-based.", "Compare with a known-good user who can access the same service.", "Confirm whether license changes are still propagating before escalating."],
             what_not_to_change_yet=["Do not grant broad admin access to work around a licensing issue.", "Do not remove and re-add licenses without confirming group-based licensing ownership and approval path."],
             limitations=["Pasted evidence may indicate a license symptom but may not prove the exact SKU or service-plan source."],
+            source_module=SOURCE_MODULE,
+        )
+
+    if pattern.pattern_id == "LOG_PATTERN_GUEST_B2B_ACCESS_BLOCKED":
+        return _finding(
+            rule_id=pattern.pattern_id,
+            title="Guest or B2B access appears blocked or incomplete",
+            severity="medium",
+            confidence=pattern.confidence,
+            likely_cause="The supplied evidence indicates a guest/B2B access problem, such as invitation redemption, cross-tenant access, tenant restriction, or missing external-user assignment.",
+            evidence=pattern.evidence,
+            evidence_missing=["Invitation redemption state, external user object state, cross-tenant access settings, tenant restrictions, and resource assignment evidence may be incomplete."],
+            next_steps=["Confirm the guest invitation was redeemed and the external user object exists in the resource tenant.", "Check cross-tenant access settings and tenant restrictions for the partner tenant.", "Confirm the guest has the expected resource assignment or group membership.", "Compare with a known-good guest from the same partner tenant if available."],
+            what_not_to_change_yet=["Do not weaken tenant restrictions or cross-tenant policy without approval.", "Do not convert the guest to a member or grant broad access to work around the issue.", "Do not assume the invitation is valid until redemption and external-user state are confirmed."],
+            limitations=["Pasted evidence may identify a guest/B2B symptom but may not include full tenant policy or invitation lifecycle details."],
             source_module=SOURCE_MODULE,
         )
 
