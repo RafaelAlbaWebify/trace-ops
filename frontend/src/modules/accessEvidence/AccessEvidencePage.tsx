@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { useState } from "react";
 import { AccessEvidenceInput, runAccessEvidenceAnalysis, StandardDiagnosticResult } from "../../api/traceApi";
 
 type AccessEvidencePageProps = {
@@ -138,8 +138,8 @@ function emptyAccessResult(sourceType: AccessEvidenceInput["sourceType"]): Stand
   };
 }
 
-function FieldHint({ children }: { children: ReactNode }) {
-  return <small className="trace-field-hint">{children}</small>;
+function FieldHint({ text }: { text: string }) {
+  return <small className="trace-field-hint">{text}</small>;
 }
 
 function ResourceAssignmentEvidenceHelper() {
@@ -248,17 +248,17 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                 <option value="entra_signin_csv">Entra sign-in CSV</option>
                 <option value="resource_assignment_json">Resource assignment guided form</option>
               </select>
-              <FieldHint>Choose guided form when sign-in succeeds but resource access still fails.</FieldHint>
+              <FieldHint text="Choose guided form when sign-in succeeds but resource access still fails." />
             </label>
             <label>
               <span>Affected user</span>
               <input value={form.affectedUser ?? ""} onChange={(event) => update("affectedUser", event.target.value)} />
-              <FieldHint>Use the same redacted user identifier across sign-in, ticket, and resource evidence.</FieldHint>
+              <FieldHint text="Use the same redacted user identifier across sign-in, ticket, and resource evidence." />
             </label>
             <label>
               <span>Affected service/resource</span>
               <input value={form.affectedService ?? ""} onChange={(event) => update("affectedService", event.target.value)} />
-              <FieldHint>Name the exact site, app, mailbox, group, or resource the user cannot open.</FieldHint>
+              <FieldHint text="Name the exact site, app, mailbox, group, or resource the user cannot open." />
             </label>
           </fieldset>
 
@@ -281,12 +281,12 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
               <label>
                 <span>Timestamp / time window</span>
                 <input value={resourceGuide.timestamp} onChange={(event) => updateResourceGuide("timestamp", event.target.value)} />
-                <FieldHint>Use the failed user attempt time, not the time you opened the ticket.</FieldHint>
+                <FieldHint text="Use the failed user attempt time, not the time you opened the ticket." />
               </label>
               <label>
                 <span>Application</span>
                 <input value={resourceGuide.application} onChange={(event) => updateResourceGuide("application", event.target.value)} />
-                <FieldHint>Match the app name shown in the sign-in log or access evidence.</FieldHint>
+                <FieldHint text="Match the app name shown in the sign-in log or access evidence." />
               </label>
               <label>
                 <span>Sign-in result</span>
@@ -295,7 +295,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="failure">Failed</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
-                <FieldHint>If sign-in failed, solve authentication before resource membership.</FieldHint>
+                <FieldHint text="If sign-in failed, solve authentication before resource membership." />
               </label>
               <label>
                 <span>MFA result</span>
@@ -305,7 +305,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="failure">Failed</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
-                <FieldHint>Use sign-in detail, not memory or user interpretation.</FieldHint>
+                <FieldHint text="Use sign-in detail, not memory or user interpretation." />
               </label>
               <label>
                 <span>Conditional Access result</span>
@@ -315,7 +315,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="notApplied">Not applied</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
-                <FieldHint>Only mark blocking when the sign-in detail or error evidence supports it.</FieldHint>
+                <FieldHint text="Only mark blocking when the sign-in detail or error evidence supports it." />
               </label>
               <label>
                 <span>Assignment / membership status</span>
@@ -324,7 +324,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="true">Present / member</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
-                <FieldHint>Check the actual resource access path, not only broad AD membership.</FieldHint>
+                <FieldHint text="Check the actual resource access path, not only broad AD membership." />
               </label>
               <label>
                 <span>Access expected / approved</span>
@@ -333,17 +333,17 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
                   <option value="false">No, access not confirmed</option>
                   <option value="unknown">Unknown / not checked</option>
                 </select>
-                <FieldHint>Use the request record or owner confirmation before recommending access changes.</FieldHint>
+                <FieldHint text="Use the request record or owner confirmation before recommending access changes." />
               </label>
               <label className="trace-full-width">
                 <span>Failure observed by user</span>
                 <textarea rows={3} value={resourceGuide.failureReason} onChange={(event) => updateResourceGuide("failureReason", event.target.value)} />
-                <FieldHint>Capture exact redacted error text, URL/resource name, and impact. Do not paste secrets.</FieldHint>
+                <FieldHint text="Capture exact redacted error text, URL/resource name, and impact. Do not paste secrets." />
               </label>
               <label className="trace-full-width">
                 <span>Evidence checked, one item per line</span>
                 <textarea rows={5} value={resourceGuide.evidenceChecked} onChange={(event) => updateResourceGuide("evidenceChecked", event.target.value)} />
-                <FieldHint>List only checks actually performed. Unknown evidence is better than invented certainty.</FieldHint>
+                <FieldHint text="List only checks actually performed. Unknown evidence is better than invented certainty." />
               </label>
             </fieldset>
           ) : (
@@ -352,7 +352,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
               <label className="trace-full-width">
                 <span>Paste redacted evidence</span>
                 <textarea rows={12} value={form.content} onChange={(event) => update("content", event.target.value)} />
-                <FieldHint>Paste logs, CSV rows, or notes with secrets removed. Keep timestamps and error wording.</FieldHint>
+                <FieldHint text="Paste logs, CSV rows, or notes with secrets removed. Keep timestamps and error wording." />
               </label>
             </fieldset>
           )}
@@ -362,7 +362,7 @@ export function AccessEvidencePage({ onResult }: AccessEvidencePageProps) {
             <label className="trace-full-width">
               <span>Operator notes optional</span>
               <textarea rows={3} value={form.notes ?? ""} onChange={(event) => update("notes", event.target.value)} />
-              <FieldHint>Add local context, business impact, or handoff notes. Keep it factual and redacted.</FieldHint>
+              <FieldHint text="Add local context, business impact, or handoff notes. Keep it factual and redacted." />
             </label>
           </fieldset>
 
