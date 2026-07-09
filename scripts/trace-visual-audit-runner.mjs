@@ -114,6 +114,13 @@ async function clickButton(page, label, options = {}) {
 async function clickModule(page, moduleId) {
   const entry = { action: "nav", target: moduleId, ok: false, error: null };
   try {
+    await page.evaluate((id) => {
+      const button = document.querySelector(`[data-module-id="${id}"]`);
+      const group = button?.closest("details");
+      if (group) {
+        group.setAttribute("open", "");
+      }
+    }, moduleId);
     const locator = page.locator(`[data-module-id="${moduleId}"]`).first();
     await locator.scrollIntoViewIfNeeded({ timeout: 5000 });
     await locator.click({ timeout: 5000 });
