@@ -71,20 +71,27 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Parse PowerShell collector scripts
+      - name: Parse PowerShell scripts
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           $failed = $false
+          $roots = @(".\collector", ".\scripts")
 
-          Get-ChildItem -LiteralPath ".\collector" -Filter "*.ps1" -Recurse | ForEach-Object {
-            $tokens = $null
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+          foreach ($root in $roots) {
+            if (-not (Test-Path -LiteralPath $root)) {
+              continue
+            }
 
-            if ($errors -and $errors.Count -gt 0) {
-              Write-Error "PowerShell parse errors in $($_.FullName): $($errors | Out-String)"
-              $failed = $true
+            Get-ChildItem -LiteralPath $root -Filter "*.ps1" -Recurse | ForEach-Object {
+              $tokens = $null
+              $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+
+              if ($errors -and $errors.Count -gt 0) {
+                Write-Error "PowerShell parse errors in $($_.FullName): $($errors | Out-String)"
+                $failed = $true
+              }
             }
           }
 
