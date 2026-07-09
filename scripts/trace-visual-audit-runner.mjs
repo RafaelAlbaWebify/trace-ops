@@ -195,6 +195,13 @@ try {
   await page.waitForTimeout(1500);
   await snapshot(page, "after license service plan analysis");
 
+  await selectSource(page, "guest_b2b_guided_form");
+  await page.waitForTimeout(300);
+  await snapshot(page, "guest b2b guided form selected");
+  await clickButton(page, /Analyze evidence/i);
+  await page.waitForTimeout(1500);
+  await snapshot(page, "after guest b2b analysis");
+
   await selectSource(page, "resource_assignment_json");
   await page.waitForTimeout(300);
   await snapshot(page, "resource assignment guided form selected");
