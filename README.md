@@ -1,6 +1,6 @@
 # TRACE
 
-> Troubleshooting Reports Across Cloud & Endpoints
+> Troubleshooting Reports for Access Control Evidence
 
 TRACE is a **local-first IAM / access evidence workbench** for turning redacted access-ticket evidence into structured findings, missing evidence, safe next checks, explicit non-actions, and support-ready reports.
 
@@ -21,6 +21,20 @@ redacted evidence
 ```
 
 TRACE does not claim root cause when the evidence is incomplete. It shows what is known, what is missing, and what should be checked next.
+
+## Visible Product Scope
+
+TRACE is intentionally scoped to IAM/access evidence.
+
+Visible release modules:
+
+```text
+Overview
+Access evidence
+History
+```
+
+Non-IAM infrastructure modules such as DNS evidence belong to **OPSCORE**, not TRACE. Placeholder modules from earlier shell experiments are not part of the visible TRACE product.
 
 ## Screenshots
 
@@ -58,9 +72,9 @@ Each run returns a finding, confidence level, evidence used, evidence missing, s
 
 ## What TRACE Is Not
 
-TRACE is not a SIEM, live tenant monitor, production automation platform, governance product, or remediation tool.
+TRACE is not a SIEM, live tenant monitor, production automation platform, governance product, infrastructure operations console, DNS audit tool, or remediation tool.
 
-It is a local read-only evidence structuring tool for support practice, portfolio proof, and controlled demos using redacted or sample data.
+It is a local read-only IAM evidence structuring tool for support practice, portfolio proof, and controlled demos using redacted or sample data.
 
 For full boundaries, see [`docs/safety-boundaries.md`](docs/safety-boundaries.md).
 
@@ -68,8 +82,8 @@ For full boundaries, see [`docs/safety-boundaries.md`](docs/safety-boundaries.md
 
 ```text
 trace-ops/
-|-- backend/     FastAPI API, analyzers, parsers, local run store, reports
-|-- collector/   PowerShell read-only collector samples and contract tests
+|-- backend/     FastAPI API, IAM analyzers, parsers, local run store, reports
+|-- collector/   read-only collector samples and contract tests
 |-- frontend/    React, TypeScript, Vite, TRACE operator shell
 |-- samples/     Public-safe sample evidence
 |-- scripts/     local audit and visual UI audit automation
@@ -111,7 +125,7 @@ GET  /api/logs/history/{run_id}
 GET  /api/logs/reports/{run_id}.md
 ```
 
-Legacy/sample diagnostic endpoints are still present for earlier TRACE modules.
+Earlier sample endpoints may remain in the codebase for compatibility or future migration, but they are not part of the visible TRACE IAM release scope.
 
 ## Run Locally
 
@@ -119,7 +133,7 @@ Backend:
 
 ```powershell
 Set-Location -LiteralPath "C:\Users\ralba\trace-ops\backend"
-..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Frontend:
@@ -170,12 +184,12 @@ $repo = Join-Path $HOME "trace-ops"
 - [`docs/finished-roadmap.md`](docs/finished-roadmap.md)
 - [`docs/iam-scenario-pack-v2.md`](docs/iam-scenario-pack-v2.md)
 
-## Release Goal
+## Release Status
 
-The next stable release target is:
+Current release line:
 
 ```text
-trace-v0.3.0-guided-iam-evidence
+trace-v0.3.x-guided-iam-evidence
 ```
 
-The goal is a finished portfolio artifact for local IAM/access evidence analysis, with future ideas moved to backlog instead of blocking release.
+The goal is a finished portfolio artifact for local IAM/access evidence analysis, with infrastructure ideas moved to OPSCORE and future IAM ideas moved to backlog instead of blocking release.
