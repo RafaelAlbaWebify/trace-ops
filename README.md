@@ -22,6 +22,14 @@ redacted evidence
 
 TRACE does not claim root cause when the evidence is incomplete. It shows what is known, what is missing, and what should be checked next.
 
+## Screenshots
+
+The screenshots below come from the final local visual-audit proof package for `trace-v0.3.0-guided-iam-evidence`.
+
+![TRACE UI screenshot gallery](docs/screenshots/readme/trace-ui-gallery.svg)
+
+The gallery shows the operator dashboard, the Access Evidence intake workflow, and a Guest / B2B analysis result.
+
 ## Current Workflows
 
 | Workflow | Purpose |
