@@ -1,14 +1,29 @@
-# TRACE
+# TRACE — Historical Repository
+
+> [!IMPORTANT]
+> **This repository is no longer the maintained TRACE project.**
+>
+> It preserves the earlier TRACE IT Operations and IAM evidence prototype that was presented publicly during the project's development. The current maintained application is:
+>
+> **[RafaelAlbaWebify/trace-iam-evidence](https://github.com/RafaelAlbaWebify/trace-iam-evidence)**
+>
+> The current repository contains the completed local-first IAM evidence investigation workbench, including persisted investigations, evidence provenance, immutable analysis runs, structured findings, timeline, run comparison, reports, the refurbished operational interface, and current automated verification.
+>
+> This repository is retained only as development history. Do not use it as the current implementation or documentation source.
+
+---
+
+## Historical project description
 
 > Troubleshooting Reports for Access Control Evidence
 
-TRACE is a **local-first IAM / access evidence workbench** for turning redacted access-ticket evidence into structured findings, missing evidence, safe next checks, explicit non-actions, and support-ready reports.
+TRACE began as a **local-first IAM / access evidence workbench** for turning redacted access-ticket evidence into structured findings, missing evidence, safe next checks, explicit non-actions, and support-ready reports.
 
-It is my flagship project for the **IAM Engineer / Identity Support / Access Operations** path.
+It was developed as a portfolio project for the **IAM Engineer / Identity Support / Access Operations** path.
 
-## Why This Exists
+## Why This Existed
 
-IAM support tickets often arrive as incomplete fragments: a user message, a sign-in result, a policy note, a license clue, or an access-denied screenshot. TRACE turns that messy evidence into a structured operator workflow.
+IAM support tickets often arrive as incomplete fragments: a user message, a sign-in result, a policy note, a license clue, or an access-denied screenshot. This earlier TRACE version explored how to turn that evidence into a structured operator workflow.
 
 ```text
 redacted evidence
@@ -20,11 +35,11 @@ redacted evidence
   -> Markdown / JSON support report
 ```
 
-TRACE does not claim root cause when the evidence is incomplete. It shows what is known, what is missing, and what should be checked next.
+TRACE did not claim root cause when evidence was incomplete. It showed what was known, what was missing, and what should be checked next.
 
-## Visible Product Scope
+## Historical Visible Product Scope
 
-TRACE is intentionally scoped to IAM/access evidence.
+This repository was intentionally scoped to IAM/access evidence.
 
 Visible release modules:
 
@@ -34,17 +49,15 @@ Access evidence
 History
 ```
 
-Non-IAM infrastructure modules such as DNS evidence belong to **OPSCORE**, not TRACE. Placeholder modules from earlier shell experiments are not part of the visible TRACE product.
+Non-IAM infrastructure modules such as DNS evidence were moved outside TRACE. Placeholder modules from earlier shell experiments were not part of the visible TRACE product.
 
-## Screenshots
+## Historical Screenshots
 
-The screenshots below come from the final local visual-audit proof package for `trace-v0.3.0-guided-iam-evidence`.
+The screenshots below come from the earlier local visual-audit proof package.
 
 ![TRACE UI screenshot gallery](docs/screenshots/readme/trace-ui-gallery.svg)
 
-The gallery shows the operator dashboard, the Access Evidence intake workflow, and a Guest / B2B analysis result.
-
-## Current Workflows
+## Historical Workflows
 
 | Workflow | Purpose |
 |---|---|
@@ -55,9 +68,9 @@ The gallery shows the operator dashboard, the Access Evidence intake workflow, a
 | Guest / B2B guided form | Structure external-user, invitation, tenant-policy, and assignment evidence |
 | Resource Assignment guided form | Separate successful authentication from resource authorization failure |
 
-## Main Analyzer Outcomes
+## Historical Analyzer Outcomes
 
-TRACE can classify evidence for:
+This repository explored classifications for:
 
 - `LOG_PATTERN_CONDITIONAL_ACCESS_BLOCK`
 - `LOG_PATTERN_MFA_CHALLENGE_OR_FAILURE`
@@ -68,17 +81,17 @@ TRACE can classify evidence for:
 - resource assignment or group membership missing/unconfirmed evidence
 - no usable evidence / unsupported source type
 
-Each run returns a finding, confidence level, evidence used, evidence missing, safe next steps, non-actions, limitations, local history entry, and Markdown report.
+Each run returned a finding, confidence level, evidence used, evidence missing, safe next steps, non-actions, limitations, local history entry, and Markdown report.
 
-## What TRACE Is Not
+## What This Historical Version Was Not
 
-TRACE is not a SIEM, live tenant monitor, production automation platform, governance product, infrastructure operations console, DNS audit tool, or remediation tool.
+It was not a SIEM, live tenant monitor, production automation platform, governance product, infrastructure operations console, DNS audit tool, or remediation tool.
 
-It is a local read-only IAM evidence structuring tool for support practice, portfolio proof, and controlled demos using redacted or sample data.
+It was a local read-only IAM evidence structuring prototype for support practice, portfolio proof, and controlled demos using redacted or sample data.
 
 For full boundaries, see [`docs/safety-boundaries.md`](docs/safety-boundaries.md).
 
-## Architecture
+## Historical Architecture
 
 ```text
 trace-ops/
@@ -90,92 +103,7 @@ trace-ops/
 `-- docs/        architecture, safety boundaries, scenarios, roadmap, release notes
 ```
 
-Key backend files:
-
-```text
-backend/app/logs.py
-backend/app/log_models.py
-backend/app/log_parser.py
-backend/app/log_analyzer.py
-backend/app/entra_signin_analyzer.py
-backend/app/resource_assignment_analyzer.py
-backend/app/access_run_store.py
-```
-
-Key frontend files:
-
-```text
-frontend/src/App.tsx
-frontend/src/api/traceApi.ts
-frontend/src/modules/accessEvidence/AccessEvidencePage.tsx
-frontend/src/ui/ResultPanel.tsx
-frontend/src/styles/trace-shell.css
-```
-
-## API Endpoints
-
-Primary access-evidence endpoints:
-
-```text
-GET  /api/health
-GET  /api/modules
-POST /api/logs/analyze
-GET  /api/logs/history
-GET  /api/logs/history/{run_id}
-GET  /api/logs/reports/{run_id}.md
-```
-
-Earlier sample endpoints may remain in the codebase for compatibility or future migration, but they are not part of the visible TRACE IAM release scope.
-
-## Run Locally
-
-Backend:
-
-```powershell
-Set-Location -LiteralPath "C:\Users\ralba\trace-ops\backend"
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
-
-Frontend:
-
-```powershell
-Set-Location -LiteralPath "C:\Users\ralba\trace-ops\frontend"
-npm install
-npm run dev
-```
-
-Typical local URLs:
-
-```text
-Backend:  http://127.0.0.1:8000
-Frontend: http://127.0.0.1:5173
-```
-
-## Validate Locally
-
-Backend:
-
-```powershell
-Set-Location -LiteralPath "C:\Users\ralba\trace-ops\backend"
-python -m pytest
-```
-
-Frontend:
-
-```powershell
-Set-Location -LiteralPath "C:\Users\ralba\trace-ops\frontend"
-npm test
-npm run build
-```
-
-Full local visual proof:
-
-```powershell
-$repo = Join-Path $HOME "trace-ops"
-& (Join-Path $repo "VISUAL_AUDIT_TRACE_LOCAL.bat")
-```
-
-## Documentation
+## Historical Documentation
 
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/demo-scenarios.md`](docs/demo-scenarios.md)
@@ -184,12 +112,8 @@ $repo = Join-Path $HOME "trace-ops"
 - [`docs/finished-roadmap.md`](docs/finished-roadmap.md)
 - [`docs/iam-scenario-pack-v2.md`](docs/iam-scenario-pack-v2.md)
 
-## Release Status
+## Superseded Status
 
-Current release line:
+The active project and all current setup, release, workflow, safety, and validation information now live in:
 
-```text
-trace-v0.3.x-guided-iam-evidence
-```
-
-The goal is a finished portfolio artifact for local IAM/access evidence analysis, with infrastructure ideas moved to OPSCORE and future IAM ideas moved to backlog instead of blocking release.
+**https://github.com/RafaelAlbaWebify/trace-iam-evidence**
